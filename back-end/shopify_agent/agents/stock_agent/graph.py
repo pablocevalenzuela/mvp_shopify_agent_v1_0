@@ -1,19 +1,23 @@
 import os
-from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode, create_react_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
-from shopify_agent.agents.stock_agent.state import AgentState
 from shopify_agent.agents.stock_agent.tools import send_stock_alert
 from shopify_agent.agents.stock_agent.prompts import SYSTEM_PROMPT
 
 # Definir herramientas
 tools = [send_stock_alert]
-tool_node = ToolNode(tools)
 
-# Modelo LLM
-# Se recomienda usar modelos como 'gpt-4o-mini' para optimizar costos sin sacrificar razonamiento
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+# Configuración del LLM usando GitHub Models (vía Azure Inference)
+# Obtenemos el token desde las variables de entorno cargadas por Django/dotenv
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    api_key=os.getenv("GITHUB_TOKEN"),
+    base_url="https://models.inference.ai.azure.com",
+    temperature=0,
+    max_tokens=1000
+)
 
-# El grafo ReAct simplificado utilizando el asistente predefinido de LangGraph
-# Esto asegura que el patrón ReAct se implemente con la mínima latencia y overhead de tokens
+# El grafo ReAct de LangGraph
+# IMPORTANTE: create_react_agent se encarga de llamar a .bind_tools(tools) internamente,
+# pero pasarle el LLM configurado es lo que activa la conexión a GitHub Models.
 graph = create_react_agent(llm, tools, state_modifier=SYSTEM_PROMPT)
