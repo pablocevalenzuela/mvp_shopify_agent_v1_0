@@ -4,7 +4,8 @@ from pathlib import Path
 # BASE_DIR apunta ahora dos niveles arriba por estar en settings/
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-yf@cdwxmm#c9hmuohd3j#w46+nx1g@pwob7d7=8*cgjy9jkmtc')
+SECRET_KEY = os.getenv(
+    'SECRET_KEY', 'django-insecure-yf@cdwxmm#c9hmuohd3j#w46+nx1g@pwob7d7=8*cgjy9jkmtc')
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
@@ -48,12 +49,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+"""
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -63,7 +66,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+# TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = 'static/'
