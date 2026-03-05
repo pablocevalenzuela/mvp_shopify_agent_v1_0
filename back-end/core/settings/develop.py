@@ -1,18 +1,17 @@
 from .base import *
-# from dotenv import load_dotenv
-import environt
+import environ
 import os
 
 # Cargar variables de entorno específicas de desarrollo
-# dotenv_path = os.path.join(BASE_DIR, '.env.develop')
-# load_dotenv(dotenv_path)
-
+# El método read_env carga el archivo al os.environ
 environ.Env.read_env(os.path.join(BASE_DIR, '.env.develop'))
 
+# Sobrescribimos el DEBUG si es necesario
 DEBUG = True
 
 DATABASES = {
     # Lee la variable DATABASE_URL de .env.develop y la configura para Django.
+    # Nota: env viene importado desde .base
     'default': env.db('DATABASE_URL')
 }
 
