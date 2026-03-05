@@ -1,0 +1,17 @@
+[project]
+name = "back-end"
+version = "0.1.0"
+description = "Proyecto Django para MVP Shopify Agent"
+authors = [
+    {name = "pablocevalenzuela",email = "pablocevalenzuela@gmail.com"}
+]
+readme = "README.md"
+requires-python = "^3.12"
+dependencies = [
+    "django (>=6.0.3,<7.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
