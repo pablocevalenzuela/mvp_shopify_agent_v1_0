@@ -18,6 +18,5 @@ llm = ChatOpenAI(
 )
 
 # El grafo ReAct de LangGraph
-# IMPORTANTE: create_react_agent se encarga de llamar a .bind_tools(tools) internamente,
-# pero pasarle el LLM configurado es lo que activa la conexión a GitHub Models.
-graph = create_react_agent(llm, tools, state_modifier=SYSTEM_PROMPT)
+# Cambiamos state_modifier por prompt para asegurar compatibilidad
+graph = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
