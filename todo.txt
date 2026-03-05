@@ -1,0 +1,19 @@
+Taks in back-end:
+- set up proyecto Django: ok
+- app shopify_agent: en proceso
+- set up .env.develop: en proceso
+
+Tasks in DBMS(Supabase):
+- set up nueva account (free tier): en proceso
+
+DB password en Supabase: CamilaUrra.2025_&%#
+
+Tasks in front-end:
+
+Tasks in GCP:
+
+Tasks in
+
+
+
+
