@@ -4,7 +4,7 @@ from pathlib import Path
 # BASE_DIR apunta ahora dos niveles arriba por estar en settings/
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-change-me')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-yf@cdwxmm#c9hmuohd3j#w46+nx1g@pwob7d7=8*cgjy9jkmtc')
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
