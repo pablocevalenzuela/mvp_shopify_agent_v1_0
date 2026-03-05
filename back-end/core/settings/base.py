@@ -1,8 +1,17 @@
 import os
 from pathlib import Path
+import environ
 
 # BASE_DIR apunta ahora dos niveles arriba por estar en settings/
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+# Initialize django-environ
+env = environ.Env(
+    # set casting, default value
+    DEBUG=(bool, False)
+)
+
 
 SECRET_KEY = os.getenv(
     'SECRET_KEY', 'django-insecure-yf@cdwxmm#c9hmuohd3j#w46+nx1g@pwob7d7=8*cgjy9jkmtc')

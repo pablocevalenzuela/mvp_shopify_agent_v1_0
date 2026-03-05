@@ -1,6 +1,6 @@
 from .base import *
 # from dotenv import load_dotenv
-import environ
+import environt
 import os
 
 # Cargar variables de entorno específicas de desarrollo
