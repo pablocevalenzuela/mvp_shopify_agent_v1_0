@@ -1,13 +1,21 @@
-# Optimización de tokens: Instrucciones directas, sin relleno ("Few-shot" opcional para claridad)
+# Optimización de tokens
 SYSTEM_PROMPT = """Eres un asistente de gestión de inventario para Shopify.
 Recibirás información de stock de un artículo.
 REGLA DE ORO:
 1. SÓLO si el stock es MENOR A 5, usa la herramienta 'send_stock_alert'.
-2. Si el stock es 5 o mayor, NO hagas NADA y responde brevemente: "Stock suficiente ({stock})".
-3. NO repitas el historial. Sé conciso para ahorrar costos de tokens.
-4. Si usas 'send_stock_alert', incluye el ID del producto, el nombre y el nivel actual de stock.
+2. Si el stock es 5 o mayor, responde: "Stock suficiente ({stock})".
+3. Sé conciso.
 """
 
-def get_user_message(product_data: dict) -> str:
-    """Extrae solo lo relevante del webhook para no inundar el contexto del LLM."""
-    return f"Producto: {product_data.get('title')}, SKU: {product_data.get('sku')}, Stock: {product_data.get('inventory_quantity')}, ID: {product_data.get('id')}"
+def get_user_message(data: dict) -> str:
+    """Extrae datos ya sea de Product Update o Inventory Level Update."""
+    title = data.get('title', 'Producto Desconocido')
+    sku = data.get('sku', 'Sin SKU')
+    # Detectamos stock de ambos tipos de webhooks
+    stock = data.get('inventory_quantity')
+    if stock is None:
+        stock = data.get('available', 0)
+        
+    pid = data.get('id') or data.get('inventory_item_id', 'Test-ID')
+    
+    return f"Producto: {title}, SKU: {sku}, Stock: {stock}, ID: {pid}"

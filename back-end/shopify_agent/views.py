@@ -10,24 +10,18 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
-from shopify_agent.agents.stock_agent.runner import run_stock_agent
+# COMENTADO TEMPORALMENTE PARA ENFOCARSE EN EL WEBHOOK
+# from shopify_agent.agents.stock_agent.runner import run_stock_agent
 
 def verify_shopify_webhook(data, hmac_header):
-    """
-    Verifica la firma HMAC del webhook de Shopify.
-    Copiado de la implementación exitosa compartida por el usuario.
-    """
-    # Intentamos obtenerlo de settings o de variable de entorno directamente
     secret = os.getenv('SHOPIFY_WEBHOOK_SECRET', '')
     if not secret:
         print("ADVERTENCIA: SHOPIFY_WEBHOOK_SECRET no está configurado.")
         return False
-        
     secret = secret.encode('utf-8')
-    # Calcular el digest en bytes y luego codificar en Base64
     digest = base64.b64encode(
         hmac.new(secret, data, hashlib.sha256).digest()).decode()
-
+    
     print("--- Verificación de Webhook Shopify ---")
     print(f"HMAC de Shopify: {hmac_header}")
     print(f"Digest Calculado: {digest}")
@@ -39,64 +33,41 @@ def verify_shopify_webhook(data, hmac_header):
 @permission_classes([AllowAny])
 def shopify_webhook_receiver(request):
     """
-    Recibe y procesa los webhooks de Shopify utilizando el agente de IA.
+    Recibe webhooks de Shopify, valida la firma y muestra los datos.
+    El agente de IA está pausado temporalmente.
     """
     if request.method != 'POST':
         return HttpResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     try:
         request_body = request.body
-        # Shopify envía el header con este nombre exacto
         hmac_header = request.headers.get('X-Shopify-Hmac-SHA256')
 
         if not hmac_header:
-            print("Error: Falta el header X-Shopify-Hmac-SHA256")
-            return JsonResponse(
-                {'error': 'Missing HMAC header'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return JsonResponse({'error': 'Missing HMAC header'}, status=401)
 
         if not verify_shopify_webhook(request_body, hmac_header):
-            print("Error: Firma HMAC inválida")
-            return JsonResponse(
-                {'error': 'Invalid HMAC signature'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+            return JsonResponse({'error': 'Invalid HMAC signature'}, status=401)
 
-        # Parsear el payload
-        raw_body_decoded = request_body.decode('utf-8')
-        print(f"--- CUERPO CRUDO RECIBIDO ---")
-        print(raw_body_decoded)
+        raw_body = request_body.decode('utf-8')
+        payload = json.loads(raw_body)
         
-        payload = json.loads(raw_body_decoded)
-        
-        print("--- Payload Parseado ---")
-        print(payload)
+        print("--- PAYLOAD RECIBIDO ---")
+        print(json.dumps(payload, indent=2))
 
-        # Ejecutar el Agente de IA con el patrón ReAct
-        if payload is None:
-            print("ERROR: El payload parseado es None")
-            return JsonResponse({'error': 'Payload is None'}, status=400)
-            
-        result = run_stock_agent(payload)
+        # AGENTE PAUSADO
+        # result = run_stock_agent(payload)
+        result = {"status": "IA Agent Paused", "message": "Webhook validation successful"}
 
-        return JsonResponse(
-            {
-                'message': 'Webhook processed',
-                'agent_result': result
-            },
-            status=status.HTTP_200_OK
-        )
+        return JsonResponse({
+            'message': 'Webhook received successfully',
+            'details': result
+        }, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
-        return JsonResponse(
-            {'error': 'Invalid JSON payload'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
-        print(f"Error procesando el webhook de Shopify: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
-        return JsonResponse(
-            {'error': 'Internal server error', 'details': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JsonResponse({'error': str(e)}, status=500)
