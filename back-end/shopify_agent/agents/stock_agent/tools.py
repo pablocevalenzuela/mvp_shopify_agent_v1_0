@@ -5,7 +5,7 @@ from langchain_core.tools import tool
 from shopify_agent.models import LowStockAlert, ProviderOrder
 
 @tool
-def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: int):
+def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: int, thread_id: str = None):
     """
     Envía alerta de bajo stock y pregunta si se desea hacer un pedido al proveedor.
     """
@@ -16,23 +16,33 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     msg_text = (
         f"⚠️ *ALERTA DE STOCK BAJO*\n\n"
         f"El producto *{product_name}* (SKU: {sku}) tiene solo *{stock_level}* unidades.\n\n"
-        f"¿Hacemos un pedido al proveedor de este SKU?"
+        f"¿Deseas realizar un pedido de reposición? Responde 'SÍ' para comenzar."
     )
 
     if gateway_url and gateway_token and recipient_id:
-        recipient_id = recipient_id.split('#')[0].strip()
+        # Limpieza simple del ID si viene con sufijos de OpenClaw
+        clean_recipient = recipient_id.split('#')[0].strip()
         payload = {
             "tool": "message",
             "action": "send",
-            "args": {"target": recipient_id, "message": msg_text, "channel": "whatsapp"}
+            "args": {"target": clean_recipient, "message": msg_text, "channel": "whatsapp"}
         }
         headers = {"Authorization": f"Bearer {gateway_token}", "Content-Type": "application/json"}
-        requests.post(gateway_url, json=payload, headers=headers, timeout=15)
+        try:
+            requests.post(gateway_url, json=payload, headers=headers, timeout=15)
+        except Exception as e:
+            print(f"Error enviando alerta a OpenClaw: {e}")
 
-    # Registro en Supabase
-    LowStockAlert.objects.create(product_id=product_id, sku=sku, product_name=product_name, stock_level=stock_level)
+    # Registro en Supabase con thread_id para correlación futura
+    LowStockAlert.objects.create(
+        product_id=product_id, 
+        sku=sku, 
+        product_name=product_name, 
+        stock_level=stock_level,
+        thread_id=thread_id
+    )
     
-    return f"Alerta enviada para {product_name}. Esperando confirmación del usuario."
+    return f"Alerta enviada para {product_name}. El usuario ha sido notificado en WhatsApp."
 
 @tool
 def place_provider_order(sku: str, product_name: str, quantity: int):

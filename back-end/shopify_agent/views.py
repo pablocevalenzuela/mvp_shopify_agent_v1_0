@@ -3,6 +3,7 @@ import hashlib
 import json
 import base64
 import os
+import requests
 from django.conf import settings
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -11,6 +12,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
 from shopify_agent.agents.stock_agent.runner import run_stock_agent
+from shopify_agent.agents.order_agent.runner import run_order_agent
+from shopify_agent.models import LowStockAlert
 
 def verify_shopify_webhook(data, hmac_header):
     secret = os.getenv('SHOPIFY_WEBHOOK_SECRET', '')
@@ -31,10 +34,8 @@ def shopify_webhook_receiver(request):
             return JsonResponse({'error': 'Unauthorized'}, status=401)
 
         payload = json.loads(request_body.decode('utf-8'))
-        if payload is None:
-            payload = {"inventory_item_id": "test_item_99", "available": 2, "title": "Test", "sku": "SKU-001"}
-
-        # Usamos el número de WhatsApp configurado como thread_id por defecto para alertas
+        
+        # El thread_id es el número configurado para recibir alertas
         thread_id = os.getenv('WHATSAPP_RECIPIENT_ID', 'shopify_alerts')
         result = run_stock_agent(payload, thread_id=thread_id)
         return JsonResponse(result)
@@ -47,27 +48,32 @@ def shopify_webhook_receiver(request):
 def openclaw_response_receiver(request):
     """
     RECIBE RESPUESTAS DE WHATSAPP VÍA OPENCLAW.
-    Configurar este endpoint como 'Outbound URL' en OpenClaw.
+    Enruta al Agente de Pedidos si hay una alerta pendiente.
     """
     try:
         payload = json.loads(request.body.decode('utf-8'))
-        
-        # OpenClaw Universal IM suele enviar: {"from": "ID", "text": "mensaje", "channel": "whatsapp"}
-        # Ajustar según el formato exacto que veas en tus logs de OpenClaw.
-        user_msg = payload.get('text')
-        user_id = payload.get('from') or payload.get('to') # Depende de la dirección
+        user_msg = payload.get('text', '').strip()
+        user_id = payload.get('from') or payload.get('to') or os.getenv('WHATSAPP_RECIPIENT_ID')
 
         if not user_msg:
             return JsonResponse({"status": "no text"}, status=200)
 
-        # Procesar con el agente usando el user_id como hilo para mantener el contexto
-        result = run_stock_agent({"text": user_msg}, thread_id=user_id)
+        # Lógica de Enrutamiento:
+        # Si el usuario dice "SÍ" o tenemos una alerta reciente sin procesar, usamos OrderAgent
+        has_pending_alert = LowStockAlert.objects.filter(thread_id=user_id, status='notified').exists()
+        
+        if has_pending_alert or user_msg.lower() in ['si', 'sí', 'ok', 'vale', 'adelante']:
+            print(f"--- [Router] Enrutando a OrderAgent para {user_id} ---")
+            result = run_order_agent(user_msg, thread_id=user_id)
+        else:
+            print(f"--- [Router] Enrutando a StockAgent para {user_id} ---")
+            result = run_stock_agent({"text": user_msg}, thread_id=user_id)
         
         # Enviar la respuesta de la IA de vuelta a WhatsApp vía OpenClaw
         gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
         gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
         
-        if gateway_url and gateway_token:
+        if gateway_url and gateway_token and result.get("agent_response"):
             out_payload = {
                 "tool": "message",
                 "action": "send",
@@ -77,7 +83,7 @@ def openclaw_response_receiver(request):
                     "channel": "whatsapp"
                 }
             }
-            requests.post(gateway_url, json=out_payload, headers={"Authorization": f"Bearer {gateway_token}"})
+            requests.post(gateway_url, json=out_payload, headers={"Authorization": f"Bearer {gateway_token}"}, timeout=15)
 
         return JsonResponse({"status": "processed"})
     except Exception as e:
