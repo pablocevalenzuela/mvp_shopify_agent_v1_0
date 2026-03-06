@@ -80,3 +80,10 @@ TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = 'static/'
+
+
+# Shopify API Credentials
+SHOPIFY_API_KEY = env('SHOPIFY_API_KEY', default=None)
+SHOPIFY_API_PASSWORD = env('SHOPIFY_API_PASSWORD', default=None)
+SHOPIFY_WEBHOOK_SECRET = env('SHOPIFY_WEBHOOK_SECRET', default=None)
+SHOPIFY_STORE_NAME = env('SHOPIFY_STORE_NAME', default=None)
