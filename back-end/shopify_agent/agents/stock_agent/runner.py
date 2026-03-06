@@ -1,10 +1,11 @@
 from shopify_agent.agents.stock_agent.graph import graph
 from shopify_agent.agents.stock_agent.prompts import get_user_message
 from shopify_agent.agents.stock_agent.dedupe import should_process
+from shopify_agent.utils import get_shopify_product_details
 
 def run_stock_agent(product_data: dict):
     """
-    Orquestador principal del agente. Soporta Product Update e Inventory Update.
+    Orquestador principal del agente. Enriquecemos los datos si faltan.
     """
     print("\n--- [AGENTE] Iniciando procesamiento de payload ---")
     
@@ -12,37 +13,44 @@ def run_stock_agent(product_data: dict):
         print("[AGENTE] Error: Payload inválido")
         return {"status": "error", "reason": "Payload inválido o vacío"}
 
-    # Soporte para ambos esquemas de Shopify
-    product_id = product_data.get('id') or product_data.get('inventory_item_id')
+    # 1. Extraer IDs
+    inv_id = product_data.get('inventory_item_id')
+    product_id = product_data.get('id') or inv_id
     
-    # IMPORTANTE: En webhooks reales de Inventory Level, el stock viene en 'available'
+    # 2. Extraer Stock
     stock_level = product_data.get('inventory_quantity')
     if stock_level is None:
         stock_level = product_data.get('available')
-        
-    # Si sigue siendo None, es que el campo tiene otro nombre o no viene
-    if stock_level is None:
-        print(f"[AGENTE] Advertencia: No se encontró nivel de stock en el payload. Campos: {list(product_data.keys())}")
-        stock_level = 0
     
-    print(f"[AGENTE] Producto ID: {product_id} | Stock detectado: {stock_level}")
+    if stock_level is None:
+        print("[AGENTE] OMITIDO: No se detectó nivel de stock.")
+        return {"status": "skipped", "reason": "No stock data"}
 
-    # 1. Optimización: Filtro temprano (Rule-based)
+    # 3. FILTRO TEMPRANO (REGLA DE NEGOCIO) - Ahorro de Tokens
     if stock_level >= 5:
         print(f"[AGENTE] OMITIDO: Stock suficiente ({stock_level} >= 5)")
         return {"status": "skipped", "reason": f"Stock suficiente ({stock_level})"}
 
-    # 2. Optimización: Deduplicación
+    # 4. ENRIQUECER PAYLOAD (Si falta el nombre)
+    # Si viene de 'inventory_level/update', no trae nombre.
+    if not product_data.get('title') and inv_id:
+        print(f"[AGENTE] Enriqueciendo datos para inventory_item_id: {inv_id}...")
+        details = get_shopify_product_details(inv_id)
+        if details:
+            product_data.update(details)
+            print(f"[AGENTE] Datos recuperados: {details['title']} | SKU: {details['sku']}")
+
+    # 5. DEDUPLICACIÓN
     if not should_process(str(product_id), stock_level):
         print(f"[AGENTE] OMITIDO: Alerta ya procesada recientemente para ID {product_id}")
         return {"status": "skipped", "reason": "Alerta ya procesada recientemente"}
 
     print("[AGENTE] Llamando a la IA (LangGraph)...")
     
-    # 3. Preparación de inputs
+    # 6. Preparación de inputs
     user_msg = get_user_message(product_data)
     
-    # 4. Invocación del Grafo LangGraph
+    # 7. Invocación del Grafo
     inputs = {"messages": [("user", user_msg)]}
     final_state = graph.invoke(inputs)
     
