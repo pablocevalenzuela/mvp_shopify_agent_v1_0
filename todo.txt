@@ -17,3 +17,56 @@ Tasks in
 
 
 
+
+
+
+
+# test total Agent:
+$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py test shopify_agent
+
+
+# simple test Agent, to know reason logic (ReAct):
+$ poetry run python shopify_agent/interactive_test.py
+
+
+
+# run Django in develop env:
+DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py runserver
+
+
+#primero se ejecuta makemigrations y despues migrate para aplicar modelos en DB(Supabase):
+
+$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py makemigrations shopify_agent
+
+$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py migrate
+
+
+
+
+  Resumen de tu Arquitectura Final:
+   * Django Modular: Preparado para desarrollo (.env.develop) y producción (.env.production).
+   * Seguridad: Validación HMAC de Shopify integrada y secretos protegidos fuera de Git.
+   * Agente LangGraph: Implementación explícita del patrón ReAct con optimización de costos (solo llama a la IA si el stock es < 5).
+   * Integración Supabase: Uso del ORM de Django para persistencia profesional.
+
+
+
+
+Tareas pendientes:
+
+
+
+
+
+
+
+Conectarme directamente desde Cloud shell a VM instance para usar https:
+¢ gcloud compute ssh instance-20260303-165955 --zone=us-west1-a -- -L 18789:localhost:18789
+
+
+
+OpenClaw token:
+$ cat ~/.openclaw/openclaw.json | grep "token"
+
+      "mode": "token",
+      "token": "81bade217332db82e48ee5f8fe122934ea3a6cd72a1e2497"
