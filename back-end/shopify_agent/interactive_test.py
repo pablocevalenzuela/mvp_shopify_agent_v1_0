@@ -2,7 +2,7 @@ import os
 import sys
 import django
 
-# 1. Asegurar que el directorio actual esté en la ruta para que reconozca los paquetes
+# 1. Asegurar que el directorio actual esté en la ruta
 sys.path.append(os.getcwd())
 
 # 2. Configurar Django
@@ -28,10 +28,20 @@ def chat_with_agent():
                 
             messages.append(("user", user_input))
             
-            # Ejecutar el grafo
-            final_state = graph.invoke({"messages": messages})
+            # Ejecutar el grafo paso a paso (stream) para ver las llamadas a herramientas
+            print("--- Pensando ---")
+            for chunk in graph.stream({"messages": messages}, stream_mode="values"):
+                # Si hay mensajes de herramienta, los mostramos para debug
+                if "messages" in chunk:
+                    last_msg = chunk["messages"][-1]
+                    if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+                        print(f"🔧 Ejecutando herramienta: {last_msg.tool_calls[0]['name']}")
+                    # Si es un mensaje de tipo ToolMessage (resultado)
+                    if last_msg.type == "tool":
+                        print(f"📦 Resultado de herramienta: {last_msg.content}")
             
-            # Obtener el último mensaje
+            # El estado final tras todo el flujo
+            final_state = graph.invoke({"messages": messages})
             ai_response = final_state["messages"][-1]
             
             print(f"Agente: {ai_response.content}")
