@@ -1,21 +1,25 @@
 import os
 import requests
 import json
+from django.conf import settings
 
 def get_shopify_product_details(inventory_item_id: str):
     """
     Consulta la API GraphQL de Shopify para obtener el título y SKU 
     a partir de un inventory_item_id.
     """
-    shop_url = os.getenv('SHOPIFY_SHOP_URL')
+    # Usamos SHOPIFY_STORE_NAME tal como el usuario lo tiene configurado
+    store_name = os.getenv('SHOPIFY_STORE_NAME')
     access_token = os.getenv('SHOPIFY_ADMIN_ACCESS_TOKEN')
-    api_version = "2024-01" # O la que prefieras
+    api_version = "2024-01" 
     
-    if not shop_url or not access_token:
-        print("[SHOPIFY API] Error: Faltan credenciales en .env")
+    if not store_name or not access_token:
+        print("[SHOPIFY API] Error: Faltan credenciales (SHOPIFY_STORE_NAME o ACCESS_TOKEN) en .env")
         return None
 
-    url = f"https://{shop_url}/admin/api/{api_version}/graphql.json"
+    # Construimos la URL completa de la tienda
+    shop_domain = f"{store_name}.myshopify.com"
+    url = f"https://{shop_domain}/admin/api/{api_version}/graphql.json"
     
     # Query para obtener SKU y Título del Producto
     query = """
