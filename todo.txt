@@ -54,8 +54,9 @@ $ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py migra
 
 Tareas pendientes:
 
-
-
+1- Una vez que WP(OpenClaw) envie notificacion de low stock, le pregunte si desea 
+2- Buscar la forma de migrar mi openClaw VM instance de GCP a otro provider cloud mas economico.
+3- instalar https://myclaw.ai/tutorial/google-workspace para enviar y recibir mails.
 
 
 
@@ -70,3 +71,33 @@ $ cat ~/.openclaw/openclaw.json | grep "token"
 
       "mode": "token",
       "token": "81bade217332db82e48ee5f8fe122934ea3a6cd72a1e2497"
+
+
+
+
+lo ultimo visto:
+
+ He implementado la arquitectura para una conversación multi-turno inteligente.
+
+
+  Cómo funciona el nuevo flujo:
+   1. Shopify actualiza stock -> Django dispara el Agente -> WhatsApp recibe: "Alerta: Queso (SKU: 121) stock 2. ¿Hacemos un pedido?".
+   2. Tú respondes en WhatsApp: "sí".
+   3. OpenClaw envía tu "sí" al nuevo endpoint openclaw-response/.
+   4. Django identifica tu número de teléfono (thread_id) y recupera el contexto (IA sabe que hablaban del Queso).
+   5. IA responde vía WhatsApp: "¿Cuántas unidades del SKU 121 deseas pedir?".
+   6. Tú respondes: "10".
+   7. IA detecta el número, llama a place_provider_order:
+       * Registra el pedido en tu tabla provider_orders en Supabase.
+       * Ordena a OpenClaw enviar el Email al proveedor.
+       * Te confirma por WhatsApp: "Pedido de 10 unidades enviado".
+
+
+  Tareas para ti:
+   1. Migraciones: Ejecuta makemigrations y migrate para crear la tabla provider_orders.
+   2. Configurar OpenClaw: En tu VM de GCP, debes configurar el outbound-url de tu canal WhatsApp para que apunte a:
+      https://tu-ngrok.dev/api/shopify/webhook/openclaw-response/.
+   3. Herramienta Email: Asegúrate de que tu OpenClaw tenga una herramienta o skill llamada email (o ajusta el nombre en tools.py).
+
+
+  ¿Deseas que probemos este flujo con el script interactivo simulando que eres tú respondiendo por WhatsApp?
