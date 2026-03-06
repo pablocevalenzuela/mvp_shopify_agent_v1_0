@@ -28,26 +28,27 @@ def chat_with_agent():
                 
             messages.append(("user", user_input))
             
-            # Ejecutar el grafo paso a paso (stream) para ver las llamadas a herramientas
+            # Ejecutar el grafo paso a paso (stream) y capturar el estado final
             print("--- Pensando ---")
+            final_chunk = None
             for chunk in graph.stream({"messages": messages}, stream_mode="values"):
-                # Si hay mensajes de herramienta, los mostramos para debug
+                final_chunk = chunk # Vamos guardando el último chunk
+                
                 if "messages" in chunk:
                     last_msg = chunk["messages"][-1]
+                    # Mostrar cuando la IA decide usar una herramienta
                     if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
                         print(f"🔧 Ejecutando herramienta: {last_msg.tool_calls[0]['name']}")
-                    # Si es un mensaje de tipo ToolMessage (resultado)
-                    if last_msg.type == "tool":
+                    # Mostrar el resultado de la herramienta
+                    if hasattr(last_msg, "type") and last_msg.type == "tool":
                         print(f"📦 Resultado de herramienta: {last_msg.content}")
             
-            # El estado final tras todo el flujo
-            final_state = graph.invoke({"messages": messages})
-            ai_response = final_state["messages"][-1]
-            
-            print(f"Agente: {ai_response.content}")
-            
-            # Actualizamos nuestro historial
-            messages = final_state["messages"]
+            # Extraemos la respuesta final del último chunk del stream
+            if final_chunk and "messages" in final_chunk:
+                ai_response = final_chunk["messages"][-1]
+                print(f"Agente: {ai_response.content}")
+                # Actualizamos el historial para la siguiente vuelta
+                messages = final_chunk["messages"]
             
         except KeyboardInterrupt:
             print("\n¡Adiós!")
