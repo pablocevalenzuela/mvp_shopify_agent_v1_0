@@ -6,6 +6,7 @@ class LowStockAlert(models.Model):
     product_name = models.CharField(max_length=255)
     stock_level = models.IntegerField()
     status = models.CharField(max_length=50, default='notified')
+    thread_id = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
