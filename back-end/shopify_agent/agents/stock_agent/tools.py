@@ -7,7 +7,7 @@ from shopify_agent.models import LowStockAlert
 @tool
 def send_stock_alert(product_id: str, product_name: str, stock_level: int):
     """
-    Envía una alerta de stock bajo vía OpenClaw Gateway.
+    Envía una alerta de stock bajo vía OpenClaw Tools Invoke.
     """
     
     # 1. Registro local
@@ -25,7 +25,7 @@ def send_stock_alert(product_id: str, product_name: str, stock_level: int):
     except Exception as e:
         db_status = f"DB Error: {str(e)}"
 
-    # 3. Notificación WhatsApp vía OpenClaw Gateway
+    # 3. Notificación WhatsApp vía OpenClaw Tools Invoke
     gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
     gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
     recipient_id = os.getenv('WHATSAPP_RECIPIENT_ID')
@@ -33,11 +33,14 @@ def send_stock_alert(product_id: str, product_name: str, stock_level: int):
     whatsapp_status = "WhatsApp Skip"
     
     if gateway_url and gateway_token and recipient_id:
-        # Formato para el endpoint /v1/messages/send del Gateway
+        # Formato para /tools/invoke
         payload = {
-            "channel": "whatsapp",
-            "to": recipient_id,
-            "message": f"⚠️ *ALERTA DE STOCK BAJO*\n\nEl producto *{product_name}* (SKU: {product_id}) tiene solo *{stock_level}* unidades disponibles.",
+            "tool": "messages_send", # También podría ser "universal_im.send" según versión
+            "args": {
+                "target": recipient_id,
+                "message": f"⚠️ *ALERTA DE STOCK BAJO*\n\nEl producto *{product_name}* (SKU: {product_id}) tiene solo *{stock_level}* unidades.",
+                "channel": "universal-im"
+            }
         }
         
         headers = {
@@ -46,15 +49,23 @@ def send_stock_alert(product_id: str, product_name: str, stock_level: int):
         }
         
         try:
-            # Enviamos la petición al puerto 18789 de la VM en GCP
+            print(f"[OPENCLAW DEBUG] Intentando invocar herramienta en: {gateway_url}")
             response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
             
-            if response.status_code in [200, 201, 202]:
+            if response.status_code in [200, 201]:
                 whatsapp_status = "WhatsApp OK"
             else:
-                whatsapp_status = f"OpenClaw Error: {response.status_code}"
-                print(f"[OPENCLAW DEBUG] URL intentada: {gateway_url}")
-                print(f"[OPENCLAW DEBUG] Respuesta: {response.text}")
+                whatsapp_status = f"Error: {response.status_code}"
+                print(f"[OPENCLAW DEBUG] Respuesta error: {response.text}")
+                
+                # REINTENTO con nombre de herramienta alternativo si el primero falla con 404/400
+                if response.status_code in [404, 400]:
+                    print("[OPENCLAW DEBUG] Probando nombre de herramienta alternativo...")
+                    payload["tool"] = "universal_im.send"
+                    response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
+                    if response.status_code == 200:
+                        whatsapp_status = "WhatsApp OK (Alt Tool)"
+
         except Exception as e:
             whatsapp_status = f"Conn Error: {str(e)}"
 
