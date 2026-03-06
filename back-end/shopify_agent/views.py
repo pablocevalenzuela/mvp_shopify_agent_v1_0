@@ -10,8 +10,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
-# COMENTADO TEMPORALMENTE PARA ENFOCARSE EN EL WEBHOOK
-# from shopify_agent.agents.stock_agent.runner import run_stock_agent
+# REACTIVADO PARA PROCESAR EL WEBHOOK
+from shopify_agent.agents.stock_agent.runner import run_stock_agent
 
 def verify_shopify_webhook(data, hmac_header):
     secret = os.getenv('SHOPIFY_WEBHOOK_SECRET', '')
@@ -33,8 +33,7 @@ def verify_shopify_webhook(data, hmac_header):
 @permission_classes([AllowAny])
 def shopify_webhook_receiver(request):
     """
-    Recibe webhooks de Shopify, valida la firma y muestra los datos.
-    El agente de IA está pausado temporalmente.
+    Recibe webhooks de Shopify, valida la firma y ejecuta el agente de IA.
     """
     if request.method != 'POST':
         return HttpResponse(status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -52,16 +51,22 @@ def shopify_webhook_receiver(request):
         raw_body = request_body.decode('utf-8')
         payload = json.loads(raw_body)
         
-        print("--- PAYLOAD RECIBIDO ---")
-        print(json.dumps(payload, indent=2))
+        # MANEJO DE TEST VACÍO (NULL)
+        if payload is None:
+            print("INFO: Shopify envió un test vacío (null). Usando datos de prueba.")
+            payload = {
+                "inventory_item_id": "test_item_99",
+                "available": 2, # Forzamos alerta para probar la IA
+                "title": "Producto de Prueba (Shopify Test)",
+                "sku": "SKU-TEST-001"
+            }
 
-        # AGENTE PAUSADO
-        # result = run_stock_agent(payload)
-        result = {"status": "IA Agent Paused", "message": "Webhook validation successful"}
+        print("--- PROCESANDO CON AGENTE IA ---")
+        result = run_stock_agent(payload)
 
         return JsonResponse({
-            'message': 'Webhook received successfully',
-            'details': result
+            'message': 'Webhook processed successfully',
+            'agent_result': result
         }, status=status.HTTP_200_OK)
 
     except json.JSONDecodeError:
