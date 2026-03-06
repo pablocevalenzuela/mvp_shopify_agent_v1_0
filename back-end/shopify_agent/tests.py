@@ -79,3 +79,33 @@ class ShopifyWebhookIntegrationTests(APITestCase):
         """
         response = self.client.post(self.url, data={"id": "1"}, content_type='application/json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+class StockAgentLiveTest(TestCase):
+    """
+    PRUEBA REAL: Verifica la conexión con GitHub Models.
+    Ejecuta esto solo cuando quieras validar la conectividad real con la IA.
+    """
+    def test_live_ai_connection(self):
+        import os
+        token = os.getenv("GITHUB_TOKEN")
+        
+        if not token or token == "tu_token_de_github_aqui":
+            self.skipTest("GITHUB_TOKEN no configurado. Saltando prueba real.")
+
+        print("\n--- 🤖 Iniciando LLAMADA REAL a GitHub Models ---")
+        payload = {
+            "id": "live_test_001",
+            "title": "Producto de Prueba Real",
+            "inventory_quantity": 2, # Forzamos activación de la IA
+            "sku": "LIVE-SKU-TEST"
+        }
+
+        # Ejecutamos el agente sin mocks
+        try:
+            result = run_stock_agent(payload)
+            print(f"Respuesta recibida de la IA: {result.get('agent_response')}")
+            
+            self.assertEqual(result['status'], 'success')
+            self.assertIsNotNone(result.get('agent_response'))
+        except Exception as e:
+            self.fail(f"La llamada a la API de Inferencia falló: {e}")
