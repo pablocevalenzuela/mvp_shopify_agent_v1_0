@@ -38,4 +38,9 @@ class ShopifyWebhookView(APIView):
             result = run_stock_agent(product_data)
             return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
+            # IMPRIMIR EL ERROR PARA DIAGNÓSTICO
+            print(f"--- ERROR EN WEBHOOK ---")
+            print(str(e))
+            import traceback
+            traceback.print_exc()
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
