@@ -1,3 +1,16 @@
 from django.db import models
 
-# Create your models here.
+class LowStockAlert(models.Model):
+    product_id = models.CharField(max_length=255)
+    product_name = models.CharField(max_length=255)
+    stock_level = models.IntegerField()
+    status = models.CharField(max_length=50, default='notified')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'low_stock_alerts' # Forzamos el nombre de la tabla que querías
+        verbose_name = 'Alerta de Stock Bajo'
+        verbose_name_plural = 'Alertas de Stock Bajo'
+
+    def __str__(self):
+        return f"{self.product_name} - Stock: {self.stock_level}"
