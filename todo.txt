@@ -101,3 +101,122 @@ lo ultimo visto:
 
 
   ¿Deseas que probemos este flujo con el script interactivo simulando que eres tú respondiendo por WhatsApp?
+
+
+
+
+
+
+  I will now modify the LowStockAlert model in models.py to include a thread_id for tracking who received which alert, following
+  best practices for multi-agent systems.
+
+
+  I will now create the runner.py file for the order_agent, which will serve as the entry point for triggering the order-related
+  tasks and managing the conversation flow.
+
+
+   Tienes razón en hacer esa pregunta, y es fundamental para entender cómo hemos implementado el HITL (Human-In-The-Loop) de forma robusta para que el agente
+  no se "pierda".
+
+
+  Aquí te explico cómo funciona la arquitectura que hemos montado y por qué, en este caso, tu Back-end es el que orquesta el HITL, usando a OpenClaw como
+  una pasarela (Gateway) inteligente:
+
+
+  1. ¿Dónde se realiza el HITL?
+  El HITL no ocurre dentro de un Skill de OpenClaw, sino en la interacción entre tu Base de Datos y el openclaw_response_receiver en tu Django:
+   * Pausa: Cuando el StockAgent envía la alerta, el flujo se "detiene" (es asíncrono). El agente no se queda esperando en memoria, lo cual es mejor para no
+     consumir recursos.
+   * Persistencia: La alerta se queda grabada en Supabase con el estado notified y el thread_id (el número de WhatsApp).
+   * Reanudación: Cuando el usuario responde "SÍ" en WhatsApp, OpenClaw reenvía ese mensaje a tu servidor. Tu "Router" en views.py ve que hay una alerta
+     pendiente para ese usuario y despierta al OrderAgent.
+
+
+  2. ¿Necesitas un Skill en OpenClaw?
+  Con la implementación actual, OpenClaw ya tiene los "Skills" que necesitas, y es tu Back-end quien los invoca:
+   * Skill de Mensajería: Tu agente llama al "tool" message de OpenClaw para enviar el WhatsApp.
+   * Skill de Email: Tu agente llama al "tool" email de OpenClaw para pedirle que envíe el correo al proveedor.
+
+
+  ¿Cuándo sí necesitarías crear un Skill manual en OpenClaw?
+  Solo si quisieras que el agente interno de OpenClaw (si es que estás usando uno allí) tomara decisiones por su cuenta. Pero como tu objetivo es que el
+  agente no pierda las instrucciones, es mucho más seguro que LangGraph (en tu back-end) lleve el control de la conversación.
+
+
+  3. El beneficio de este enfoque (No "perderse")
+  Al separar el StockAgent (que solo vigila stock) del OrderAgent (que solo procesa pedidos), evitamos que un solo agente tenga 10 herramientas y se
+  confunda.
+   * El StockAgent tiene una misión: Avisar.
+   * El OrderAgent tiene una misión: Pedir unidades y confirmar.
+
+
+  Resumen de la comunicación:
+   1. Shopify -> Tu Back-end -> OpenClaw (WhatsApp) -> Usuario.
+   2. Usuario ("SÍ") -> OpenClaw (Webhook) -> Tu Back-end (Router identifica la alerta).
+   3. Tu Back-end -> OrderAgent (Pregunta cuántos) -> OpenClaw (WhatsApp).
+   4. Usuario ("10") -> OpenClaw -> Tu Back-end -> OrderAgent (Ejecuta el envío de Mail vía OpenClaw).
+
+
+  ¿Te gustaría que cree un endpoint específico de "Skill" por si quieres registrarlo formalmente en el catálogo de OpenClaw, o prefieres seguir con este
+  modelo de Webhook que es más directo para LangGraph?
+
+
+
+  Para que no haya dudas, vamos a desglosar exactamente dónde ocurre cada cosa en tu código actual. El HITL (Human-In-The-Loop) no es una sola línea de
+  código, sino un estado de espera que hemos distribuido así:
+
+
+  1. ¿Dónde se hace el HITL en tu Back-end?
+  El HITL ocurre principalmente en back-end/shopify_agent/views.py, específicamente en la función openclaw_response_receiver.
+
+
+  Aquí es donde el "bucle" se cierra:
+   * Paso A (La Pausa): Cuando el StockAgent envía el WhatsApp, el proceso en el servidor termina. No hay un proceso "colgado" esperando. El HITL está en
+     modo "espera pasiva" porque guardamos en la base de datos (LowStockAlert) que hay una alerta con status='notified'.
+   * Paso B (La Interrupción): El "humano" es el usuario en WhatsApp. Su "intervención" llega como un nuevo POST de OpenClaw a tu servidor.
+   * Paso C (La Reanudación): En views.py, esta línea es el corazón del HITL:
+
+
+   1     has_pending_alert = LowStockAlert.objects.filter(thread_id=user_id, status='notified').exists()
+      Si esto es True, tu back-end dice: "Ah, este mensaje de WhatsApp no es una charla cualquiera, es la respuesta al HITL que dejé abierto antes". Y
+  entonces activa al OrderAgent.
+
+  2. ¿Cómo envía OpenClaw el mail?
+  Esto ya está programado en tu herramienta dentro de back-end/shopify_agent/agents/order_agent/tools.py.
+
+
+  Cuando el OrderAgent decide que ya tiene toda la información (SKU y cantidad), ejecuta la función place_provider_order, que hace esto:
+
+
+    1 # Así es como tu back-end le "ordena" a OpenClaw que dispare el mail
+    2 email_payload = {
+    3     "tool": "email",  # Le indicamos a OpenClaw qué herramienta usar
+    4     "action": "send",
+    5     "args": {
+    6         "to": provider_email,
+    7         "subject": f"Pedido de Reposición - SKU: {sku}",
+    8         "body": f"..."
+    9     }
+   10 }
+   11 requests.post(gateway_url, json=email_payload, ...)
+
+
+  Importante: Para que esto funcione físicamente, en tu panel de OpenClaw debes tener configurado el Skill de Email (ya sea vía SMTP, SendGrid, etc.). Tu
+  back-end solo actúa como el "cerebro" que da la orden; OpenClaw es el "brazo" que ejecuta el envío.
+
+
+  Resumen del flujo para tu tranquilidad:
+   1. Shopify avisa bajo stock.
+   2. Back-end registra la alerta y envía WhatsApp (vía OpenClaw). <-- AQUÍ EMPIEZA EL HITL
+   3. Usuario responde "SÍ".
+   4. OpenClaw avisa al Back-end.
+   5. Back-end (views.py) detecta la alerta pendiente. <-- AQUÍ SE PROCESA EL HITL
+   6. OrderAgent pregunta "¿Cuántos?".
+   7. Usuario responde "10".
+   8. OrderAgent llama a la herramienta de email.
+   9. OpenClaw envía el mail al proveedor. <-- AQUÍ TERMINA EL FLUJO
+
+
+  ¿Te gustaría que añadamos alguna validación extra en el HITL, por ejemplo, que si el usuario dice "NO" se cancele la alerta en la base de datos?
+
+                         
