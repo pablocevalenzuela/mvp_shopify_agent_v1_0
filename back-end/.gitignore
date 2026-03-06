@@ -1,0 +1,5 @@
+GEMINI.md
+.env
+back-end/.env.develop
+back-end/.env.production
+back-end/.env*

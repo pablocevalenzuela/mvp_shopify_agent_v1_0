@@ -1,0 +1,103 @@
+Taks in back-end:
+- set up proyecto Django: ok
+- app shopify_agent: en proceso
+- set up .env.develop: en proceso
+
+Tasks in DBMS(Supabase):
+- set up nueva account (free tier): en proceso
+
+DB password en Supabase: CamilaUrra.2025_&%#
+
+Tasks in front-end:
+
+Tasks in GCP:
+
+Tasks in
+
+
+
+
+
+
+
+
+# test total Agent:
+$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py test shopify_agent
+
+
+# simple test Agent, to know reason logic (ReAct):
+$ poetry run python shopify_agent/interactive_test.py
+
+
+
+# run Django in develop env:
+DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py runserver
+
+
+#primero se ejecuta makemigrations y despues migrate para aplicar modelos en DB(Supabase):
+
+$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py makemigrations shopify_agent
+
+$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python manage.py migrate
+
+
+
+
+  Resumen de tu Arquitectura Final:
+   * Django Modular: Preparado para desarrollo (.env.develop) y producción (.env.production).
+   * Seguridad: Validación HMAC de Shopify integrada y secretos protegidos fuera de Git.
+   * Agente LangGraph: Implementación explícita del patrón ReAct con optimización de costos (solo llama a la IA si el stock es < 5).
+   * Integración Supabase: Uso del ORM de Django para persistencia profesional.
+
+
+
+
+Tareas pendientes:
+
+1- Una vez que WP(OpenClaw) envie notificacion de low stock, le pregunte si desea 
+2- Buscar la forma de migrar mi openClaw VM instance de GCP a otro provider cloud mas economico.
+3- instalar https://myclaw.ai/tutorial/google-workspace para enviar y recibir mails.
+
+
+
+
+Conectarme directamente desde Cloud shell a VM instance para usar https:
+¢ gcloud compute ssh instance-20260303-165955 --zone=us-west1-a -- -L 18789:localhost:18789
+
+
+
+OpenClaw token:
+$ cat ~/.openclaw/openclaw.json | grep "token"
+
+      "mode": "token",
+      "token": "81bade217332db82e48ee5f8fe122934ea3a6cd72a1e2497"
+
+
+
+
+lo ultimo visto:
+
+ He implementado la arquitectura para una conversación multi-turno inteligente.
+
+
+  Cómo funciona el nuevo flujo:
+   1. Shopify actualiza stock -> Django dispara el Agente -> WhatsApp recibe: "Alerta: Queso (SKU: 121) stock 2. ¿Hacemos un pedido?".
+   2. Tú respondes en WhatsApp: "sí".
+   3. OpenClaw envía tu "sí" al nuevo endpoint openclaw-response/.
+   4. Django identifica tu número de teléfono (thread_id) y recupera el contexto (IA sabe que hablaban del Queso).
+   5. IA responde vía WhatsApp: "¿Cuántas unidades del SKU 121 deseas pedir?".
+   6. Tú respondes: "10".
+   7. IA detecta el número, llama a place_provider_order:
+       * Registra el pedido en tu tabla provider_orders en Supabase.
+       * Ordena a OpenClaw enviar el Email al proveedor.
+       * Te confirma por WhatsApp: "Pedido de 10 unidades enviado".
+
+
+  Tareas para ti:
+   1. Migraciones: Ejecuta makemigrations y migrate para crear la tabla provider_orders.
+   2. Configurar OpenClaw: En tu VM de GCP, debes configurar el outbound-url de tu canal WhatsApp para que apunte a:
+      https://tu-ngrok.dev/api/shopify/webhook/openclaw-response/.
+   3. Herramienta Email: Asegúrate de que tu OpenClaw tenga una herramienta o skill llamada email (o ajusta el nombre en tools.py).
+
+
+  ¿Deseas que probemos este flujo con el script interactivo simulando que eres tú respondiendo por WhatsApp?
