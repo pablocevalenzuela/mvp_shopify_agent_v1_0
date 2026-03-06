@@ -1,6 +1,6 @@
 from django.urls import path
-from shopify_agent.views import ShopifyWebhookView
+from shopify_agent.views import shopify_webhook_receiver
 
 urlpatterns = [
-    path('webhook/shopify-stock/', ShopifyWebhookView.as_view(), name='shopify-webhook-stock'),
+    path('webhook/shopify-stock/', shopify_webhook_receiver, name='shopify-webhook-stock'),
 ]
