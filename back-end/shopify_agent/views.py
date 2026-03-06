@@ -64,12 +64,20 @@ def shopify_webhook_receiver(request):
             )
 
         # Parsear el payload
-        payload = json.loads(request_body.decode('utf-8'))
+        raw_body_decoded = request_body.decode('utf-8')
+        print(f"--- CUERPO CRUDO RECIBIDO ---")
+        print(raw_body_decoded)
         
-        print("--- Payload Recibido ---")
-        # print(json.dumps(payload, indent=2)) # Opcional: para debug pesado
+        payload = json.loads(raw_body_decoded)
+        
+        print("--- Payload Parseado ---")
+        print(payload)
 
         # Ejecutar el Agente de IA con el patrón ReAct
+        if payload is None:
+            print("ERROR: El payload parseado es None")
+            return JsonResponse({'error': 'Payload is None'}, status=400)
+            
         result = run_stock_agent(payload)
 
         return JsonResponse(
