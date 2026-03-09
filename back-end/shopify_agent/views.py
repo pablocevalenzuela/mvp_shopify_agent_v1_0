@@ -26,7 +26,9 @@ def verify_shopify_webhook(data, hmac_header):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def shopify_webhook_receiver(request):
-    """Webhook de Inventario de Shopify."""
+    """
+    Webhook de Inventario de Shopify: Dispara alertas de bajo stock.
+    """
     try:
         request_body = request.body
         hmac_header = request.headers.get('X-Shopify-Hmac-SHA256')
@@ -35,8 +37,8 @@ def shopify_webhook_receiver(request):
 
         payload = json.loads(request_body.decode('utf-8'))
         
-        # El thread_id es el número configurado para recibir alertas
-        thread_id = os.getenv('WHATSAPP_RECIPIENT_ID', 'shopify_alerts')
+        # Enviamos la alerta al número configurado por defecto
+        thread_id = os.getenv('WHATSAPP_RECIPIENT_ID', 'shopify_admin')
         result = run_stock_agent(payload, thread_id=thread_id)
         return JsonResponse(result)
     except Exception as e:
@@ -47,45 +49,55 @@ def shopify_webhook_receiver(request):
 @permission_classes([AllowAny])
 def openclaw_response_receiver(request):
     """
-    RECIBE RESPUESTAS DE WHATSAPP VÍA OPENCLAW.
-    Enruta al Agente de Pedidos si hay una alerta pendiente.
+    RECEPTOR PRINCIPAL DE OPENCLAW (WHATSAPP).
+    Gestiona comandos de Skills y respuestas de usuario para HITL.
     """
     try:
         payload = json.loads(request.body.decode('utf-8'))
-        user_msg = payload.get('text', '').strip()
-        user_id = payload.get('from') or payload.get('to') or os.getenv('WHATSAPP_RECIPIENT_ID')
+        user_msg = payload.get('text') or payload.get('message', '')
+        user_msg = user_msg.strip()
+        
+        # Identificador único del usuario de WhatsApp (Thread ID)
+        user_id = payload.get('from') or payload.get('sender') or payload.get('sender_id')
+        
+        if not user_id:
+            user_id = os.getenv('WHATSAPP_RECIPIENT_ID', 'default_user')
 
         if not user_msg:
             return JsonResponse({"status": "no text"}, status=200)
 
-        # Lógica de Enrutamiento:
-        # Si el usuario dice "SÍ" o tenemos una alerta reciente sin procesar, usamos OrderAgent
-        has_pending_alert = LowStockAlert.objects.filter(thread_id=user_id, status='notified').exists()
-        
-        if has_pending_alert or user_msg.lower() in ['si', 'sí', 'ok', 'vale', 'adelante']:
-            print(f"--- [Router] Enrutando a OrderAgent para {user_id} ---")
-            result = run_order_agent(user_msg, thread_id=user_id)
-        else:
-            print(f"--- [Router] Enrutando a StockAgent para {user_id} ---")
+        # 1. Prioridad: Comando de Skill @solicitar_productos
+        if '@solicitar_productos' in user_msg.lower():
+            print(f"--- [ROUTER] Comando @solicitar_productos detectado para {user_id} ---")
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)
-        
-        # Enviar la respuesta de la IA de vuelta a WhatsApp vía OpenClaw
-        gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
-        gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
-        
-        if gateway_url and gateway_token and result.get("agent_response"):
-            out_payload = {
-                "tool": "message",
-                "action": "send",
-                "args": {
-                    "target": user_id,
-                    "message": result["agent_response"],
-                    "channel": "whatsapp"
-                }
-            }
-            requests.post(gateway_url, json=out_payload, headers={"Authorization": f"Bearer {gateway_token}"}, timeout=15)
+            return JsonResponse({"status": "skill_triggered", "agent": "stock_agent"})
 
-        return JsonResponse({"status": "processed"})
+        # 2. Lógica de Enrutamiento para respuestas HITL:
+        # Verificamos si hay una alerta de stock bajo pendiente para este usuario
+        has_pending_stock_alert = LowStockAlert.objects.filter(
+            thread_id=user_id, 
+            status='notified'
+        ).exists()
+
+        # Si el usuario responde a una alerta o está en medio de un flujo de stock
+        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['si', 'no', 'proveedor', 'sku']):
+            print(f"--- [ROUTER] Enrutando a StockAgent para flujo de reposición ({user_id}) ---")
+            result = run_stock_agent({"text": user_msg}, thread_id=user_id)
+            
+            # Si el usuario confirma un pedido de stock, podemos marcar la alerta como procesada
+            if "pedido enviado" in result.get("agent_response", "").lower():
+                LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='processed')
+            elif user_msg.lower() == 'no':
+                LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='ignored')
+                
+        else:
+            # Por defecto, si no es flujo de stock, podría ser el OrderAgent (u otro)
+            print(f"--- [ROUTER] Enrutando a OrderAgent por defecto para {user_id} ---")
+            # Suponiendo que run_order_agent maneja otros tipos de solicitudes (ej: info de pedidos)
+            result = run_order_agent(user_msg, thread_id=user_id)
+
+        return JsonResponse({"status": "success"})
+
     except Exception as e:
-        print(f"Error OpenClaw Receiver: {e}")
+        print(f"Error en OpenClaw Router: {e}")
         return JsonResponse({"error": str(e)}, status=500)
