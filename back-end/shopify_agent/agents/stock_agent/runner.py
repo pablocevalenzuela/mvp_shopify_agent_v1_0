@@ -20,7 +20,8 @@ def send_whatsapp_response(text: str, recipient_id: str):
         }
         headers = {"Authorization": f"Bearer {gateway_token}", "Content-Type": "application/json"}
         try:
-            requests.post(gateway_url, json=payload, headers=headers, timeout=15)
+            response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
+            print(f"--- [OPENCLAW DEBUG] Status: {response.status_code} | Response: {response.text} ---")
         except Exception as e:
             print(f"Error enviando respuesta a WhatsApp: {e}")
 
