@@ -12,6 +12,18 @@ class LowStockAlert(models.Model):
     class Meta:
         db_table = 'low_stock_alerts'
 
+class Provider(models.Model):
+    name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    contact_person = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'providers'
+
+    def __str__(self):
+        return f"{self.name} ({self.email})"
+
 class ProviderOrder(models.Model):
     sku = models.CharField(max_length=255)
     product_name = models.CharField(max_length=255)

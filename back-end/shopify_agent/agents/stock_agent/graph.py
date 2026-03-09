@@ -6,11 +6,16 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from shopify_agent.agents.stock_agent.state import AgentState
-from shopify_agent.agents.stock_agent.tools import send_stock_alert, place_provider_order
+from shopify_agent.agents.stock_agent.tools import (
+    send_stock_alert, 
+    place_provider_order, 
+    check_provider_info, 
+    register_provider
+)
 from shopify_agent.agents.stock_agent.prompts import SYSTEM_PROMPT
 
-# 1. Definir herramientas
-tools = [send_stock_alert, place_provider_order]
+# 1. Registrar todas las herramientas disponibles
+tools = [send_stock_alert, place_provider_order, check_provider_info, register_provider]
 tool_node = ToolNode(tools)
 
 # 2. Configurar el LLM
@@ -24,13 +29,11 @@ llm = ChatOpenAI(
 # 3. Nodos
 def call_model(state: AgentState, config):
     thread_id = config.get("configurable", {}).get("thread_id")
-    # Inyectamos el thread_id en el sistema si es necesario o lo manejamos vía herramientas
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
     
-    # Algunas versiones de LangGraph prefieren pasar config a invoke
     response = llm.invoke(messages, config)
     
-    # Si la respuesta tiene una llamada a herramienta, nos aseguramos de que el thread_id esté disponible
+    # Inyectamos el thread_id solo si es necesario para herramientas externas
     if response.tool_calls:
         for tool_call in response.tool_calls:
             if tool_call["name"] == "send_stock_alert":
@@ -44,7 +47,7 @@ def should_continue(state: AgentState) -> Literal["tools", END]:
         return "tools"
     return END
 
-# 4. Grafo con Memoria
+# 4. Configurar el flujo
 workflow = StateGraph(AgentState)
 workflow.add_node("agent", call_model)
 workflow.add_node("tools", tool_node)
@@ -52,6 +55,6 @@ workflow.add_edge(START, "agent")
 workflow.add_conditional_edges("agent", should_continue)
 workflow.add_edge("tools", "agent")
 
-# Añadimos Checkpointer para persistencia de la conversación
+# Persistencia para el historial de WhatsApp
 checkpointer = MemorySaver()
 graph = workflow.compile(checkpointer=checkpointer)
