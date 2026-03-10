@@ -12,7 +12,12 @@ Tasks in front-end:
 
 Tasks in GCP:
 
-Tasks in
+
+
+Funcionalidades de eCommerce AI Agent:
+- Notifica automaticamente stock bajo(low stock) de productos según regla (stock < 5).
+- Desde WP permite al comerciante hacer pedido de nuevo stock al proveedor
+- Consultar desde WP del comerciante, estado de un pedido. 
 
 
 
