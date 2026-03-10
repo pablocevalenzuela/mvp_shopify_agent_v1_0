@@ -66,9 +66,10 @@ def openclaw_response_receiver(request):
         if not user_msg:
             return JsonResponse({"status": "no text"}, status=200)
 
-        # 1. Prioridad: Comando de Skill @solicitar_productos
-        if '@solicitar_productos' in user_msg.lower():
-            print(f"--- [ROUTER] Comando @solicitar_productos detectado para {user_id} ---")
+        # 1. Prioridad: Comando de Skill o ID de Skill 'request_product'
+        skill_id = payload.get('skill_id') or payload.get('id')
+        if skill_id == 'request_product' or '@solicitar_productos' in user_msg.lower():
+            print(f"--- [ROUTER] Skill request_product detectada para {user_id} ---")
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)
             return JsonResponse({"status": "skill_triggered", "agent": "stock_agent"})
 
