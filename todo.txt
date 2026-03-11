@@ -225,3 +225,30 @@ lo ultimo visto:
   ¿Te gustaría que añadamos alguna validación extra en el HITL, por ejemplo, que si el usuario dice "NO" se cancele la alerta en la base de datos?
 
                          
+
+
+
+seed django:
+
+$ poetry run python manage.py shell
+
+
+from shopify_agent.models import Provider
+Provider.objects.get_or_create(name="TechSuppliers Inc", email="tech@example.com", contact_person="Juan Pérez")
+Provider.objects.get_or_create(name="ModaGlobal", email="ventas@modaglobal.com", contact_person="Elena García")
+Provider.objects.get_or_create(name="Logística Express", email="pedidos@logex.com", contact_person="Carlos Ruiz")
+print("--- Proveedores de prueba creados exitosamente ---")
+exit()
+
+
+Provider.objects.get_or_create(
+    name="TechSuppliers Inc", email="tech@example.com", contact_person="Juan Pérez")
+Provider.objects.get_or_create(
+    name="ModaGlobal", email="ventas@modaglobal.com", contact_person="Elena García")
+Provider.objects.get_or_create(
+    name="Logística Express", email="pedidos@logex.com", contact_person="Carlos Ruiz")
+print("--- Proveedores de prueba creados exitosamente ---")
+exit()
+
+
+
