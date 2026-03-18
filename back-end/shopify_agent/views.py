@@ -51,23 +51,43 @@ def openclaw_response_receiver(request):
     """
     RECEPTOR PRINCIPAL DE OPENCLAW (WHATSAPP).
     Gestiona comandos de Skills y respuestas de usuario para HITL.
+    Compatible con OpenClaw v2026.3.13 (BSUID y nuevos esquemas de payload).
     """
     try:
         payload = json.loads(request.body.decode('utf-8'))
-        user_msg = payload.get('text') or payload.get('message', '')
+        
+        # OpenClaw v2026.3.13 puede enviar el texto en 'text', 'message' o dentro de 'data.content'
+        user_msg = (
+            payload.get('text') or 
+            payload.get('message') or 
+            payload.get('data', {}).get('content', '')
+        )
         user_msg = user_msg.strip()
         
-        # Identificador único del usuario de WhatsApp (Thread ID)
-        user_id = payload.get('from') or payload.get('sender') or payload.get('sender_id')
+        # Identificador único del usuario (Thread ID). 
+        # Priorizamos BSUID y sender_id sobre 'from' para compatibilidad con WhatsApp 2026.
+        user_id = (
+            payload.get('bsuid') or 
+            payload.get('sender_id') or 
+            payload.get('sender') or 
+            payload.get('from')
+        )
         
+        if not user_id:
+            # Si no viene en la raíz, buscamos en el objeto 'data' o 'context'
+            user_id = (
+                payload.get('data', {}).get('sender_id') or 
+                payload.get('context', {}).get('user_id')
+            )
+            
         if not user_id:
             user_id = os.getenv('WHATSAPP_RECIPIENT_ID', 'default_user')
 
         if not user_msg:
-            return JsonResponse({"status": "no text"}, status=200)
+            return JsonResponse({"status": "no text content"}, status=200)
 
         # 1. Prioridad: Comando de Skill o ID de Skill 'request_product'
-        skill_id = payload.get('skill_id') or payload.get('id')
+        skill_id = payload.get('skill_id') or payload.get('id') or payload.get('data', {}).get('skill_id')
         if skill_id == 'request_product' or '@solicitar_productos' in user_msg.lower():
             print(f"--- [ROUTER] Skill request_product detectada para {user_id} ---")
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)

@@ -7,18 +7,29 @@ import requests
 def send_whatsapp_response(text: str, recipient_id: str):
     """
     Envía la respuesta final del agente al usuario por WhatsApp.
+    Compatible con OpenClaw v2026.3.13.
     """
     gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
     gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
     
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
+        # Payload robusto para v2026.3.13
         payload = {
             "tool": "message",
             "action": "send",
-            "args": {"target": clean_recipient, "message": text, "channel": "whatsapp"}
+            "args": {
+                "target": clean_recipient, 
+                "recipient_id": clean_recipient,
+                "message": text, 
+                "channel": "whatsapp"
+            }
         }
-        headers = {"Authorization": f"Bearer {gateway_token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {gateway_token}", 
+            "Content-Type": "application/json",
+            "X-OpenClaw-Version": "2026.3.13"
+        }
         try:
             response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
             print(f"--- [OPENCLAW DEBUG] Status: {response.status_code} | Response: {response.text} ---")

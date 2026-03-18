@@ -22,12 +22,22 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
 
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
+        # Payload compatible con v2026.3.13 (soporta target y recipient_id)
         payload = {
             "tool": "message",
             "action": "send",
-            "args": {"target": clean_recipient, "message": msg_text, "channel": "whatsapp"}
+            "args": {
+                "target": clean_recipient, 
+                "recipient_id": clean_recipient,
+                "message": msg_text, 
+                "channel": "whatsapp"
+            }
         }
-        headers = {"Authorization": f"Bearer {gateway_token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {gateway_token}", 
+            "Content-Type": "application/json",
+            "X-OpenClaw-Version": "2026.3.13"
+        }
         try:
             requests.post(gateway_url, json=payload, headers=headers, timeout=15)
         except Exception as e:
