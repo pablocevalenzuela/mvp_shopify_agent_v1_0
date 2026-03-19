@@ -4,6 +4,7 @@ class LowStockAlert(models.Model):
     product_id = models.CharField(max_length=255)
     sku = models.CharField(max_length=255, null=True, blank=True)
     product_name = models.CharField(max_length=255)
+    vendor = models.CharField(max_length=255, null=True, blank=True)
     stock_level = models.IntegerField()
     status = models.CharField(max_length=50, default='notified')
     thread_id = models.CharField(max_length=255, null=True, blank=True)

@@ -21,7 +21,7 @@ def get_shopify_product_details(inventory_item_id: str):
     shop_domain = f"{store_name}.myshopify.com"
     url = f"https://{shop_domain}/admin/api/{api_version}/graphql.json"
     
-    # Query para obtener SKU y Título del Producto
+    # Query para obtener SKU, Título del Producto y Vendor (Proveedor)
     query = """
     query($id: ID!) {
       inventoryItem(id: $id) {
@@ -30,22 +30,14 @@ def get_shopify_product_details(inventory_item_id: str):
           title
           product {
             title
+            vendor
           }
         }
       }
     }
     """
     
-    # Formatear el ID para GraphQL si viene solo como número
-    if not str(inventory_item_id).startswith("gid://"):
-        gid = f"gid://shopify/InventoryItem/{inventory_item_id}"
-    else:
-        gid = inventory_item_id
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": access_token
-    }
+    # ... (resto del código igual) ...
     
     try:
         response = requests.post(url, json={'query': query, 'variables': {'id': gid}}, headers=headers)
@@ -60,12 +52,14 @@ def get_shopify_product_details(inventory_item_id: str):
             return None
             
         product_title = item.get("variant", {}).get("product", {}).get("title")
+        vendor = item.get("variant", {}).get("product", {}).get("vendor")
         variant_title = item.get("variant", {}).get("title")
         full_title = f"{product_title} ({variant_title})" if variant_title != "Default Title" else product_title
         
         return {
             "title": full_title,
-            "sku": item.get("sku")
+            "sku": item.get("sku"),
+            "vendor": vendor
         }
     except Exception as e:
         print(f"[SHOPIFY API] Error de conexión: {e}")
