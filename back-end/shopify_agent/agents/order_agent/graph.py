@@ -6,11 +6,11 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
 from shopify_agent.agents.stock_agent.state import AgentState # Reutilizamos el estado base
-from shopify_agent.agents.order_agent.tools import get_pending_stock_alert, place_provider_order
+from shopify_agent.agents.order_agent.tools import get_pending_stock_alert, place_provider_order, find_best_provider_for_sku
 from shopify_agent.agents.order_agent.prompts import SYSTEM_PROMPT
 
 # 1. Definir herramientas
-tools = [get_pending_stock_alert, place_provider_order]
+tools = [get_pending_stock_alert, place_provider_order, find_best_provider_for_sku]
 tool_node = ToolNode(tools)
 
 # 2. Configurar el LLM

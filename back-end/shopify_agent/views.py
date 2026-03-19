@@ -99,16 +99,21 @@ def openclaw_response_receiver(request):
             status='notified'
         ).exists()
 
-        if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and user_msg.lower() == 'si'):
+        if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and user_msg.lower() in ['si', 'sí', 's']):
             print(f"--- [ROUTER] Iniciando flujo de pedido con OrderAgent para {user_id} ---")
             result = run_order_agent(user_msg, thread_id=user_id)
+            
+            # Si el agente respondió, enviamos esa respuesta a través de OpenClaw
+            from shopify_agent.agents.stock_agent.runner import send_whatsapp_response
+            send_whatsapp_response(result.get("agent_response", "Procesando pedido..."), user_id)
+            
             return JsonResponse({
                 "status": "order_flow_started", 
                 "agent_response": result.get("agent_response")
             })
 
         # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
-        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no']):
+        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no', 'unidades']):
             print(f"--- [ROUTER] Enrutando a StockAgent para flujo de stock ({user_id}) ---")
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)
             

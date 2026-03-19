@@ -17,6 +17,7 @@ def get_pending_stock_alert(thread_id: str):
                 "sku": alert.sku,
                 "product_name": alert.product_name,
                 "current_stock": alert.stock_level,
+                "vendor": alert.vendor,
                 "alert_id": alert.id
             }
         return "No se encontraron alertas de bajo stock activas para este usuario."

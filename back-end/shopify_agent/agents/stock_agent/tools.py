@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 from shopify_agent.models import LowStockAlert, ProviderOrder, Provider
 
 @tool
-def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: int, thread_id: str = None):
+def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: int, vendor: str = None, thread_id: str = None):
     """
     Envía una alerta de stock bajo al usuario por WhatsApp mediante OpenClaw.
     """
@@ -22,7 +22,7 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
 
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
-        # Payload compatible con v2026.3.13 (soporta target y recipient_id)
+        # Payload compatible con v2026.3.13
         payload = {
             "tool": "message",
             "action": "send",
@@ -47,11 +47,12 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
         product_id=product_id, 
         sku=sku, 
         product_name=product_name, 
+        vendor=vendor,
         stock_level=stock_level,
         thread_id=thread_id
     )
     
-    return f"Alerta enviada para {product_name}. Esperando confirmación del usuario."
+    return f"Alerta enviada para {product_name} (Proveedor: {vendor}). Esperando confirmación."
 
 @tool
 def check_provider_info(email: str = None, name: str = None):
