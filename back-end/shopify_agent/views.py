@@ -56,7 +56,7 @@ def openclaw_response_receiver(request):
     try:
         payload = json.loads(request.body.decode('utf-8'))
         
-        # OpenClaw v2026.3.13 puede enviar el texto en 'text', 'message' o dentro de 'data.content'
+        # OpenClaw v2026.3.13: texto en 'text', 'message' o 'data.content'
         user_msg = (
             payload.get('text') or 
             payload.get('message') or 
@@ -64,8 +64,7 @@ def openclaw_response_receiver(request):
         )
         user_msg = user_msg.strip()
         
-        # Identificador único del usuario (Thread ID). 
-        # Priorizamos BSUID y sender_id sobre 'from' para compatibilidad con WhatsApp 2026.
+        # Identificador único del usuario (Thread ID)
         user_id = (
             payload.get('bsuid') or 
             payload.get('sender_id') or 
@@ -74,7 +73,6 @@ def openclaw_response_receiver(request):
         )
         
         if not user_id:
-            # Si no viene en la raíz, buscamos en el objeto 'data' o 'context'
             user_id = (
                 payload.get('data', {}).get('sender_id') or 
                 payload.get('context', {}).get('user_id')
@@ -86,35 +84,40 @@ def openclaw_response_receiver(request):
         if not user_msg:
             return JsonResponse({"status": "no text content"}, status=200)
 
-        # 1. Prioridad: Comando de Skill o ID de Skill 'request_product'
+        # 1. Prioridad: Comandos de Skill (OpenClaw -> Backend)
         skill_id = payload.get('skill_id') or payload.get('id') or payload.get('data', {}).get('skill_id')
+        
+        # Caso A: Solicitud directa de inventario
         if skill_id == 'request_product' or '@solicitar_productos' in user_msg.lower():
             print(f"--- [ROUTER] Skill request_product detectada para {user_id} ---")
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)
             return JsonResponse({"status": "skill_triggered", "agent": "stock_agent"})
 
-        # 2. Lógica de Enrutamiento para respuestas HITL:
-        # Verificamos si hay una alerta de stock bajo pendiente para este usuario
+        # Caso B: Confirmación de pedido (Activada por Skill o por texto "SI")
         has_pending_stock_alert = LowStockAlert.objects.filter(
             thread_id=user_id, 
             status='notified'
         ).exists()
 
-        # Si el usuario responde a una alerta o está en medio de un flujo de stock
-        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['si', 'no', 'proveedor', 'sku']):
-            print(f"--- [ROUTER] Enrutando a StockAgent para flujo de reposición ({user_id}) ---")
+        if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and user_msg.lower() == 'si'):
+            print(f"--- [ROUTER] Iniciando flujo de pedido con OrderAgent para {user_id} ---")
+            result = run_order_agent(user_msg, thread_id=user_id)
+            return JsonResponse({
+                "status": "order_flow_started", 
+                "agent_response": result.get("agent_response")
+            })
+
+        # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
+        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no']):
+            print(f"--- [ROUTER] Enrutando a StockAgent para flujo de stock ({user_id}) ---")
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)
             
-            # Si el usuario confirma un pedido de stock, podemos marcar la alerta como procesada
-            if "pedido enviado" in result.get("agent_response", "").lower():
-                LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='processed')
-            elif user_msg.lower() == 'no':
+            if user_msg.lower() == 'no':
                 LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='ignored')
                 
         else:
-            # Por defecto, si no es flujo de stock, podría ser el OrderAgent (u otro)
+            # Por defecto, otras consultas van al OrderAgent
             print(f"--- [ROUTER] Enrutando a OrderAgent por defecto para {user_id} ---")
-            # Suponiendo que run_order_agent maneja otros tipos de solicitudes (ej: info de pedidos)
             result = run_order_agent(user_msg, thread_id=user_id)
 
         return JsonResponse({"status": "success"})
