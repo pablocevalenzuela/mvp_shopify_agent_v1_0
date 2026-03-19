@@ -43,10 +43,10 @@ def get_user_message(data: dict) -> str:
     if 'inventory_item_id' in data:
         title = data.get('title', 'Producto Desconocido')
         sku = data.get('sku', 'N/A')
+        vendor = data.get('vendor', 'N/A')
         stock = data.get('available') or data.get('inventory_quantity', 0)
         pid = data.get('id') or data.get('inventory_item_id', 'N/A')
-        return f"ALERTA SISTEMA: El producto {title} (SKU: {sku}) tiene {stock} unidades. ID: {pid}"
+        return f"ALERTA SISTEMA: El producto {title} (SKU: {sku}) del proveedor {vendor} tiene {stock} unidades. ID: {pid}"
     
     # Si viene de OpenClaw (Mensaje de WhatsApp o Skill)
-    # OpenClaw suele enviar el texto en 'text' o 'message'
     return data.get('text') or data.get('message', '')
