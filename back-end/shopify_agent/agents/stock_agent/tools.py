@@ -14,9 +14,10 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
     recipient_id = os.getenv('WHATSAPP_RECIPIENT_ID')
 
+    vendor_info = f" del proveedor *{vendor}*" if vendor else ""
     msg_text = (
         f"⚠️ *ALERTA DE STOCK BAJO*\n\n"
-        f"El producto *{product_name}* (SKU: {sku}) tiene solo *{stock_level}* unidades.\n\n"
+        f"El producto *{product_name}* (SKU: {sku}){vendor_info} tiene solo *{stock_level}* unidades restantes.\n\n"
         f"¿Deseas realizar un pedido de reposición? Responde 'SÍ' para comenzar o 'NO' para ignorar."
     )
 

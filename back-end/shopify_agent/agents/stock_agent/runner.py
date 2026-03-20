@@ -1,3 +1,4 @@
+from langchain_core.messages import ToolMessage
 from shopify_agent.agents.stock_agent.graph import graph
 from shopify_agent.agents.stock_agent.prompts import get_user_message
 from shopify_agent.utils import get_shopify_product_details
@@ -50,7 +51,6 @@ def run_stock_agent(data: dict, thread_id: str = "default"):
             data.update(details)
 
     # 2. Filtro de Stock (Solo para webhooks de Shopify)
-    # Si es un mensaje de usuario (WhatsApp), saltamos este filtro
     is_shopify_webhook = 'inventory_item_id' in data
     stock_level = data.get('available') or data.get('inventory_quantity')
     
@@ -64,14 +64,23 @@ def run_stock_agent(data: dict, thread_id: str = "default"):
     
     final_state = graph.invoke(inputs, config=config)
     
-    # 4. Enviar respuesta final al usuario (si hay texto)
-    ai_message = final_state["messages"][-1]
+    # 4. Enviar respuesta final al usuario (Evitando duplicados)
+    # Si el flujo incluyó la herramienta 'send_stock_alert', no enviamos la respuesta de texto de la IA
+    # porque la herramienta ya envió el mensaje detallado.
+    messages = final_state["messages"]
+    used_notification_tool = any(
+        isinstance(m, ToolMessage) and "Alerta enviada" in m.content 
+        for m in messages
+    )
+
+    ai_message = messages[-1]
     ai_response_text = ai_message.content
 
-    # Si la respuesta tiene texto y no es solo una llamada a herramienta
-    if ai_response_text:
-        # Usamos thread_id como recipient_id (asumiendo que es el ID de WhatsApp)
+    # Solo enviamos respuesta si hay texto Y NO se usó la herramienta de notificación automática
+    if ai_response_text and not used_notification_tool:
         send_whatsapp_response(ai_response_text, thread_id)
+    else:
+        print(f"--- [DEBUG] Respuesta redundante omitida para {thread_id} ---")
 
     return {
         "status": "success",
