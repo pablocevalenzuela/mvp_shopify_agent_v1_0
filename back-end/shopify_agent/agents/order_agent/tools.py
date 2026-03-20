@@ -61,10 +61,8 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
     # 2. Instrucción atómica al Gateway (OpenClaw v2026.3.13)
     if gateway_url and gateway_token:
         payload = {
-            "tool": "skill",
-            "action": "execute",
+            "tool": "send_provider_order_email",
             "args": {
-                "id": "send_provider_order_email",
                 "recipient": provider_email,
                 "data": {
                     "sku": sku,
