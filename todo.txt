@@ -252,3 +252,35 @@ exit()
 
 
 
+
+
+Explicación del workflow preliminar:
+
+
+│ cd back-end && python manage.py makemigrations shopify_agent && python manage.py migrate
+
+
+✦ He completado la integración robusta entre tu back-end y OpenClaw v2026.3.13. Aquí tienes un resumen de lo que he implementado:
+
+   1. Enriquecimiento de Alertas: Ahora el webhook de Shopify obtiene automáticamente el nombre del proveedor (vendor) mediante GraphQL y lo guarda en la
+      base de datos local junto con la alerta.
+   2. Agente de Pedidos Inteligente (OrderAgent): He configurado el segundo agente para que, cuando el usuario responda "SÍ", recupere automáticamente la
+      alerta, identifique al proveedor y busque sus datos de contacto (email) en tu base de datos local.
+   3. Capa de Mensajería con OpenClaw: He ajustado las herramientas para que el back-end actúe como el cerebro que ordena a OpenClaw el envío de emails y
+      mensajes de WhatsApp, utilizando los esquemas de payload compatibles con la versión v2026.3.13.
+   4. Flujo HITL Refinado: El receptor en Django ahora identifica correctamente las variaciones de "SÍ" y asegura que las respuestas del agente lleguen
+      de vuelta al usuario a través del canal de WhatsApp configurado en tu VM de GCP.
+
+  Tu back-end ahora está preparado para orquestar todo el flujo de reposición de forma automática y segura. ¿Hay algo más en lo que pueda ayudarte?
+
+
+
+
+  ✦ Con este cambio, el flujo queda así:
+   1. Shopify avisa de stock bajo.
+   2. get_shopify_product_details obtiene el título, SKU y Vendor.
+   3. get_user_message construye un mensaje que dice: "ALERTA SISTEMA: El producto [X] (SKU: [Y]) del proveedor [Z] tiene [N] unidades".
+   4. El agente, al leer este mensaje, ahora sabe quién es el proveedor y lo pasará a la herramienta send_stock_alert.
+   5. send_stock_alert guardará el vendor en la base de datos local (LowStockAlert).
+
+  Por favor, prueba forzando la baja de stock una vez más. Ahora el vendor debería registrarse correctamente en el modelo.
