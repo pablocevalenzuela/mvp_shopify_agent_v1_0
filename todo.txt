@@ -301,6 +301,8 @@ set up openClaw:
 custom hook:
 .openclaw/workspace/hooks$ vi whatsapp_filter.py 
 
+custom 
+
 
 
 
@@ -322,3 +324,6 @@ configuré la skill himalaya para el envío de mails desde OpenClaw.
 1) Analiza mi back-end y Agentes LangGraph para ver que hace falta hacer para que el usuario en WhatsApp cuando responda con un Si, o si, OpenClaw envié el mail al proveedor correctamente.
 
 2) Si necesitas el codigo fuente de mi skill y hook de OpenClaw, me cuentas y lo comparto.
+
+
+
