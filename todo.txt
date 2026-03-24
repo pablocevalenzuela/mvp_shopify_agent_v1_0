@@ -284,3 +284,41 @@ Explicación del workflow preliminar:
    5. send_stock_alert guardará el vendor en la base de datos local (LowStockAlert).
 
   Por favor, prueba forzando la baja de stock una vez más. Ahora el vendor debería registrarse correctamente en el modelo.
+
+
+
+  whatsapp channel:
+
+⚠️ ALERTA DE STOCK BAJO
+
+El producto Queso Brie (SKU: 122) del proveedor Logística Express tiene solo 3 unidades restantes.
+
+¿Deseas realizar un pedido de reposición? Responde 'SÍ' para comenzar o 'NO' para ignorar.
+
+
+set up openClaw:
+
+custom hook:
+.openclaw/workspace/hooks$ vi whatsapp_filter.py 
+
+
+
+
+Por favor, necesito que me ayudes como un ingeniero de software senior y en IA, con basta experiencia en sistemas agenticos, en lo siguiente:
+
+1) Tengo OpenClaw v2026.3.13 funcionando con el canal WhatsApp correctamente en una VM de GCP, entonces este openClaw
+recibe desde mi back-end Django(tienes acceso al directorio de mismo nombre), desde un Agente de LangGraph, una notificación
+de bajo stock de un producto y además el endpoint de mi Agente le envía openClaw información del producto. 
+
+2) Entonces en el mensaje de WhatsApp
+que OpenClaw muestra al usuario, se le pide al usuario confirmar con un Si o No un pedido de reposición, y aquí necesito que OpenClaw envíe el mail con toda la info que OpenClaw obtuvo de mis Agentes del back-end.
+
+3) Actualmente creé un hook en .openclaw/workspace/hooks/ en python, que se supone que intercepta el si cuando el usuario responde al mensaje de WhatsApp que envía OpenClaw
+cuando recibe de mi back-end que hay poco stock de un producto. Además creé una skills que se supone que procesa el mail, pero no estoy seguro, además 
+configuré la skill himalaya para el envío de mails desde OpenClaw. 
+
+4) entonces necesito que me ayudes con lo siguiente:
+
+1) Analiza mi back-end y Agentes LangGraph para ver que hace falta hacer para que el usuario en WhatsApp cuando responda con un Si, o si, OpenClaw envié el mail al proveedor correctamente.
+
+2) Si necesitas el codigo fuente de mi skill y hook de OpenClaw, me cuentas y lo comparto.
