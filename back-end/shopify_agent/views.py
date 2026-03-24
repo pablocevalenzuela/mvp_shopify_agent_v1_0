@@ -100,15 +100,50 @@ def openclaw_response_receiver(request):
         ).exists()
 
         if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and user_msg.lower() in ['si', 'sí', 's']):
-            print(f"--- [ROUTER] Iniciando flujo de pedido con OrderAgent para {user_id} ---")
+            print(f"--- [ROUTER] Confirmación detectada para {user_id}. Procesando... ---")
+            
+            # 1. Recuperar la alerta más reciente
+            alert = LowStockAlert.objects.filter(thread_id=user_id, status='notified').order_by('-created_at').first()
+            
+            if alert:
+                from shopify_agent.models import Provider
+                from shopify_agent.agents.order_agent.tools import place_provider_order
+                
+                # 2. Buscar al proveedor registrado
+                # Nota: vendor puede ser el nombre del proveedor en la alerta
+                provider = Provider.objects.filter(name__icontains=alert.vendor).first() if alert.vendor else Provider.objects.first()
+                
+                if provider and provider.email:
+                    print(f"--- [ROUTER] Ejecutando envío directo (Determinista) a {provider.email} ---")
+                    # Llamamos a la herramienta directamente (ejecuta el post al gateway de OpenClaw)
+                    # Usamos .func si es una herramienta LangChain, o la función directamente si está importada
+                    try:
+                        # Si place_provider_order es un objeto @tool, accedemos a la función original .func
+                        # o simplemente .invoke si prefieres el envoltorio de LangChain
+                        result_msg = place_provider_order.invoke({
+                            "sku": alert.sku,
+                            "product_name": alert.product_name,
+                            "quantity": 10, # Cantidad por defecto o lógica de negocio
+                            "provider_email": provider.email
+                        })
+                        
+                        # Notificamos al usuario del éxito vía WhatsApp (vía OpenClaw)
+                        from shopify_agent.agents.stock_agent.runner import send_whatsapp_response
+                        send_whatsapp_response(f"✅ {result_msg}", user_id)
+                        
+                        return JsonResponse({"status": "order_processed_deterministically", "message": result_msg})
+                    except Exception as tool_err:
+                        print(f"Error ejecutando herramienta directa: {tool_err}")
+
+            # 3. Fallback: Si falta info (alerta, proveedor o error), despertamos al Agente LLM
+            print(f"--- [ROUTER] Fallback: Despertando OrderAgent para {user_id} ---")
             result = run_order_agent(user_msg, thread_id=user_id)
             
-            # Si el agente respondió, enviamos esa respuesta a través de OpenClaw
             from shopify_agent.agents.stock_agent.runner import send_whatsapp_response
             send_whatsapp_response(result.get("agent_response", "Procesando pedido..."), user_id)
             
             return JsonResponse({
-                "status": "order_flow_started", 
+                "status": "order_flow_started_fallback", 
                 "agent_response": result.get("agent_response")
             })
 
