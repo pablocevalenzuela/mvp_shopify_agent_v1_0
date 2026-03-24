@@ -55,14 +55,18 @@ def openclaw_response_receiver(request):
     """
     try:
         payload = json.loads(request.body.decode('utf-8'))
+        print(f"--- [ROUTER DEBUG] Payload recibido: {json.dumps(payload)} ---")
         
+        # OpenClaw v2026.3.13: texto en 'body' o 'text'
         user_msg = (
+            payload.get('body') or      # Campo detectado en los logs del usuario
             payload.get('text') or 
             payload.get('message') or 
             payload.get('data', {}).get('content', '')
         )
         user_msg = user_msg.strip() if user_msg else ""
         
+        # Identificador único del usuario (Thread ID)
         user_id = (
             payload.get('bsuid') or 
             payload.get('sender_id') or 
@@ -77,8 +81,7 @@ def openclaw_response_receiver(request):
                 os.getenv('WHATSAPP_RECIPIENT_ID', 'default_user')
             )
 
-        if not user_msg and not payload.get('skill_id'):
-            return JsonResponse({"status": "no content"}, status=200)
+        print(f"--- [ROUTER DEBUG] Msg: '{user_msg}' | User: {user_id} ---")
 
         # 1. Prioridad: Comandos de Skill (OpenClaw -> Backend)
         skill_id = payload.get('skill_id') or payload.get('id') or payload.get('data', {}).get('skill_id')
@@ -90,20 +93,25 @@ def openclaw_response_receiver(request):
             return JsonResponse({"status": "skill_triggered", "agent": "stock_agent"})
 
         # Caso B: Confirmación de pedido (Determinista)
+        # Soporte para "Sí" con y sin tilde
+        is_confirmation = user_msg.lower() in ['si', 'sí', 's', 'confirmar']
+        
         has_pending_stock_alert = LowStockAlert.objects.filter(
             thread_id=user_id, 
             status='notified'
         ).exists()
 
-        if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and user_msg.lower() in ['si', 'sí', 's']):
+        if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and is_confirmation):
             print(f"--- [ROUTER] Confirmación detectada para {user_id}. Procesando... ---")
             
+            # 1. Recuperar la alerta más reciente
             alert = LowStockAlert.objects.filter(thread_id=user_id, status='notified').order_by('-created_at').first()
             
             if alert:
                 from shopify_agent.agents.order_agent.tools import place_provider_order
+                from shopify_agent.models import Provider
                 
-                # Buscar al proveedor por el vendor de la alerta
+                # 2. Buscar al proveedor registrado
                 provider = Provider.objects.filter(name__icontains=alert.vendor).first() if alert.vendor else Provider.objects.first()
                 
                 if provider and provider.email:
@@ -127,7 +135,7 @@ def openclaw_response_receiver(request):
                     except Exception as tool_err:
                         print(f"--- [ROUTER ERROR] Error en herramienta: {tool_err} ---")
 
-            # Fallback: Agente LLM
+            # Fallback: Agente LLM (Si no hay alerta o falta info)
             print(f"--- [ROUTER] Fallback: Despertando OrderAgent para {user_id} ---")
             result = run_order_agent(user_msg, thread_id=user_id)
             
@@ -137,6 +145,25 @@ def openclaw_response_receiver(request):
                 "output": ai_resp,
                 "action": "reply_and_stop"
             }, status=200)
+
+        # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
+        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no', 'unidades']):
+            print(f"--- [ROUTER] Enrutando a StockAgent para flujo de stock ({user_id}) ---")
+            result = run_stock_agent({"text": user_msg}, thread_id=user_id)
+            
+            if user_msg.lower() == 'no':
+                LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='ignored')
+                
+        else:
+            # Por defecto, otras consultas van al OrderAgent
+            print(f"--- [ROUTER] Enrutando a OrderAgent por defecto para {user_id} ---")
+            result = run_order_agent(user_msg, thread_id=user_id)
+
+        return JsonResponse({"status": "success"})
+
+    except Exception as e:
+        print(f"--- [ROUTER GLOBAL ERROR] Error en openclaw_response_receiver: {e} ---")
+        return JsonResponse({"error": str(e)}, status=500)
 
         # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
         if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no', 'unidades']):

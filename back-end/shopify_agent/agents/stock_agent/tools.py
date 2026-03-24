@@ -18,7 +18,8 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     msg_text = (
         f"⚠️ *ALERTA DE STOCK BAJO*\n\n"
         f"El producto *{product_name}* (SKU: {sku}){vendor_info} tiene solo *{stock_level}* unidades restantes.\n\n"
-        f"¿Deseas realizar un pedido de reposición? Responde 'SÍ' para comenzar o 'NO' para ignorar."
+        f"Para autorizar el pedido de reposición al proveedor, escribe:\n*/confirm_order*\n\n"
+        f"Para ignorar esta alerta, responde 'NO'."
     )
 
     if gateway_url and gateway_token and recipient_id:
