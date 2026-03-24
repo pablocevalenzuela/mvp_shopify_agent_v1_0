@@ -129,9 +129,17 @@ def openclaw_response_receiver(request):
                         
                         # Notificamos al usuario del éxito vía WhatsApp (vía OpenClaw)
                         from shopify_agent.agents.stock_agent.runner import send_whatsapp_response
-                        send_whatsapp_response(f"✅ {result_msg}", user_id)
+                        # send_whatsapp_response(f"✅ {result_msg}", user_id) # Omitimos para usar la respuesta directa
                         
-                        return JsonResponse({"status": "order_processed_deterministically", "message": result_msg})
+                        # RESPUESTA DIRECTA AL GATEWAY (Ahorra un viaje y cancela el LLM)
+                        response = JsonResponse({
+                            "status": "success",
+                            "output": f"✅ {result_msg}",
+                            "action": "reply_and_stop",
+                            "metadata": {"source": "deterministic_router"}
+                        })
+                        response["X-OpenClaw-Action"] = "reply-and-stop"
+                        return response
                     except Exception as tool_err:
                         print(f"Error ejecutando herramienta directa: {tool_err}")
 
@@ -139,13 +147,16 @@ def openclaw_response_receiver(request):
             print(f"--- [ROUTER] Fallback: Despertando OrderAgent para {user_id} ---")
             result = run_order_agent(user_msg, thread_id=user_id)
             
-            from shopify_agent.agents.stock_agent.runner import send_whatsapp_response
-            send_whatsapp_response(result.get("agent_response", "Procesando pedido..."), user_id)
+            ai_resp = result.get("agent_response", "Procesando pedido...")
             
-            return JsonResponse({
+            # También para el fallback intentamos cancelar el LLM de OpenClaw
+            response = JsonResponse({
                 "status": "order_flow_started_fallback", 
-                "agent_response": result.get("agent_response")
+                "output": ai_resp,
+                "action": "reply_and_stop"
             })
+            response["X-OpenClaw-Action"] = "reply-and-stop"
+            return response
 
         # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
         if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no', 'unidades']):
