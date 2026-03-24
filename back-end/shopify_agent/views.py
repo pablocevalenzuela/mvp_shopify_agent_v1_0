@@ -72,7 +72,7 @@ def openclaw_response_receiver(request):
                 if provider and provider.email:
                     print(f"--- [ROUTER] Ejecutando envío directo a {provider.email} ---")
 
-                    """
+                    
                     #new
                     return JsonResponse({
                         "status": "ok",
@@ -81,8 +81,8 @@ def openclaw_response_receiver(request):
                         "product": alert.product_name,
                         "quantity": 10
                         }, status=200)
-                    """
                     
+                    """
                     result_msg = place_provider_order.invoke({
                         "sku": alert.sku,
                         "product_name": alert.product_name,
@@ -97,6 +97,7 @@ def openclaw_response_receiver(request):
                         "action": "stop",
                         "reply": f"✅ {result_msg}"
                     }, status=200)
+                    """
                 
 
         # 2. Si no es confirmación, intentar con el Agente (solo si hay créditos)
