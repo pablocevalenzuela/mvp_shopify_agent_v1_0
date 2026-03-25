@@ -28,10 +28,12 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
         # Payload ATÓMICO para OpenClaw v2026.3.13 vía /tools/invoke
         # En esta versión, el orquestador espera 'tool' y 'args' para ejecución determinista
         payload = {
-            "tool": "messenger.send",
+            "tool": "message",
+            "action": "send",
             "args": {
-                "to": clean_recipient,
-                "content": msg_text,
+                "target": clean_recipient, 
+                "recipient_id": clean_recipient,
+                "message": msg_text, 
                 "channel": "whatsapp"
             }
         }
