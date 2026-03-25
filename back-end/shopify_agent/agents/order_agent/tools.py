@@ -60,7 +60,8 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
 
     # 2. Instrucción atómica al Gateway (OpenClaw v2026.3.13)
     if gateway_url and gateway_token:
-        """
+        
+        #original payload
         payload = {
             "tool": "send_provider_order_email",
             "args": {
@@ -72,24 +73,6 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
                 }
             }
         }
-        """
-
-        payload = {
-            "name": "himalaya.email_send",
-            "input": {
-                "to": provider_email,
-                "subject": f"ORDEN DE COMPRA URGENTE - SKU: {sku}",
-                "body": f"""
-                Estimado proveedor,
-                Solicitamos reposición del siguiente producto:
-                - Producto: {product_name}
-                - SKU: {sku}
-                - Cantidad: {quantity} unidades
-                Saludos,
-                Departamento de Compras
-                """
-                }
-                }
         
         headers = {
             "Authorization": f"Bearer {gateway_token}", 
@@ -97,8 +80,8 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
             #"X-OpenClaw-Version": "2026.3.13"
         }
         try:
-            #response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
-            response = requests.post(f"{gateway_url}/v1/tools/run", json=payload, headers=headers, timeout=15)
+            response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
+            #response = requests.post(f"{gateway_url}/v1/tools/run", json=payload, headers=headers, timeout=15)
 
             if response.status_code == 200:
                 # Marcamos la alerta como procesada en el dominio local
