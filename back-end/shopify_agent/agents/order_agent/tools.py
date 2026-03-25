@@ -76,8 +76,8 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
         
         headers = {
             "Authorization": f"Bearer {gateway_token}", 
-            "Content-Type": "application/json"
-            #"X-OpenClaw-Version": "2026.3.13"
+            "Content-Type": "application/json",
+            "X-OpenClaw-Version": "2026.3.13"
         }
         try:
             response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
