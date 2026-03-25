@@ -25,11 +25,10 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
         
-        # Payload robusto y atómico para OpenClaw v2026.3.13
-        # Usamos el formato 'name' e 'input' que es el estándar de esta versión
+        # Payload para endpoint /tools/invoke de OpenClaw v2026.3.13
         payload = {
-            "name": "messenger.send",
-            "input": {
+            "tool": "messenger.send",
+            "args": {
                 "to": clean_recipient,
                 "content": msg_text,
                 "channel": "whatsapp"
@@ -43,14 +42,13 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
         }
         
         try:
-            # En v2026.3.13, la ejecución de herramientas debe ir al endpoint /v1/tools/run
-            target_url = f"{gateway_url.rstrip('/')}/v1/tools/run"
-            response = requests.post(target_url, json=payload, headers=headers, timeout=15)
+            # Usamos la URL configurada directamente (ej: http://...:18789/tools/invoke)
+            response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
             
             if response.status_code != 200:
                 print(f"--- [OPENCLAW ERROR] Status: {response.status_code} | Response: {response.text} ---")
             else:
-                print(f"--- [OPENCLAW SUCCESS] Alerta enviada a {clean_recipient} ---")
+                print(f"--- [OPENCLAW SUCCESS] Alerta enviada correctamente vía /tools/invoke ---")
                 
         except Exception as e:
             print(f"Error de conexión enviando alerta a OpenClaw: {e}")

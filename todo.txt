@@ -309,11 +309,12 @@ custom
 Por favor, necesito que me ayudes como un ingeniero de software senior y en IA, con basta experiencia en sistemas agenticos, en lo siguiente:
 
 1) Tengo OpenClaw v2026.3.13 funcionando con el canal WhatsApp correctamente en una VM de GCP, entonces este openClaw
-recibe desde mi back-end Django(tienes acceso al directorio de mismo nombre), desde un Agente de LangGraph, una notificación
-de bajo stock de un producto y además el endpoint de mi Agente le envía openClaw información del producto. 
+recibe desde mi back-end Django(tienes acceso al directorio de mismo nombre) desde un Agente de LangGraph, una notificación
+de bajo stock de un producto gracias a que escucha un webhook de Shopify y además el endpoint de mi back-end le envía a openClaw información del producto con bajo stock, por favor revisar. 
 
-2) Entonces en el mensaje de WhatsApp
-que OpenClaw muestra al usuario, se le pide al usuario confirmar con un Si o No un pedido de reposición, y aquí necesito que OpenClaw envíe el mail con toda la info que OpenClaw obtuvo de mis Agentes del back-end.
+Este mensaje de mi back-end a OpenClaw si llegaba, pero hice unos cambios seguramente en alguna parte, que ahora openclaw no recibe nada. El flujo que te expliqué anteriormente necesito resolver. y considera que eres experto en OpenClaw en su versión v2026.3.13.
+
+2) Entonces en el mensaje de WhatsApp que OpenClaw muestra al usuario, se le pide al usuario confirmar con un Si o No un pedido de reposición, y aquí necesito que OpenClaw envíe el mail con toda la info que OpenClaw obtuvo de mis Agentes del back-end.
 
 3) Actualmente creé un hook en .openclaw/workspace/hooks/ en python, que se supone que intercepta el si cuando el usuario responde al mensaje de WhatsApp que envía OpenClaw
 cuando recibe de mi back-end que hay poco stock de un producto. Además creé una skills que se supone que procesa el mail, pero no estoy seguro, además 
