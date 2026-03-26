@@ -1,0 +1,195 @@
+{
+    "meta": {
+        "lastTouchedVersion": "2026.3.13",
+        "lastTouchedAt": "2026-03-25T20:05:13.321Z"
+    },
+    "wizard": {
+        "lastRunAt": "2026-03-25T20:05:13.217Z",
+        "lastRunVersion": "2026.3.13",
+        "lastRunCommand": "onboard",
+        "lastRunMode": "local"
+    },
+    "auth": {
+        "profiles": {
+            "huggingface:default": {
+                "provider": "huggingface",
+                "mode": "api_key"
+            }
+        }
+    },
+    "models": {
+        "mode": "merge",
+        "providers": {
+            "huggingface": {
+                "baseUrl": "https://router.huggingface.co/v1",
+                "api": "openai-completions",
+                "models": [
+                    {
+                        "id": "deepseek-ai/DeepSeek-R1",
+                        "name": "DeepSeek R1",
+                        "reasoning": true,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 3,
+                            "output": 7,
+                            "cacheRead": 3,
+                            "cacheWrite": 3
+                        },
+                        "contextWindow": 131072,
+                        "maxTokens": 8192
+                    },
+                    {
+                        "id": "deepseek-ai/DeepSeek-V3.1",
+                        "name": "DeepSeek V3.1",
+                        "reasoning": false,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 0.6,
+                            "output": 1.25,
+                            "cacheRead": 0.6,
+                            "cacheWrite": 0.6
+                        },
+                        "contextWindow": 131072,
+                        "maxTokens": 8192
+                    },
+                    {
+                        "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                        "name": "Llama 3.3 70B Instruct Turbo",
+                        "reasoning": false,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 0.88,
+                            "output": 0.88,
+                            "cacheRead": 0.88,
+                            "cacheWrite": 0.88
+                        },
+                        "contextWindow": 131072,
+                        "maxTokens": 8192
+                    },
+                    {
+                        "id": "openai/gpt-oss-120b",
+                        "name": "GPT-OSS 120B",
+                        "reasoning": false,
+                        "input": [
+                            "text"
+                        ],
+                        "cost": {
+                            "input": 0,
+                            "output": 0,
+                            "cacheRead": 0,
+                            "cacheWrite": 0
+                        },
+                        "contextWindow": 131072,
+                        "maxTokens": 8192
+                    }
+                ]
+            }
+        }
+    },
+    "agents": {
+        "defaults": {
+            "model": {
+                "primary": "huggingface/Qwen/Qwen3-8B"
+            },
+            "models": {
+                "huggingface/Qwen/Qwen3-8B": {
+                    "alias": "LLM  first stable"
+                },
+                "huggingface/deepseek-ai/DeepSeek-R1": {
+                    "alias": "LLM second stable"
+                }
+            },
+            "workspace": "/home/team_ecoinput_com_gmail_com/.openclaw/workspace",
+            "compaction": {
+                "mode": "safeguard"
+            }
+        },
+        "list": [
+            {
+                "id": "main",
+                "model": "huggingface/Qwen/Qwen3-8B",
+                "tools": {
+                    "profile": "full"
+                }
+            }
+        ]
+    },
+    "tools": {
+        "profile": "coding"
+    },
+    "commands": {
+        "native": "auto",
+        "nativeSkills": "auto",
+        "restart": true,
+        "ownerDisplay": "raw"
+    },
+    "session": {
+        "dmScope": "per-channel-peer"
+    },
+    "hooks": {
+        "internal": {
+            "enabled": true,
+            "entries": {
+                "whatsapp-stock-confirmation": {
+                    "enabled": false
+                }
+            }
+        }
+    },
+    "channels": {
+        "whatsapp": {
+            "enabled": true,
+            "configWrites": true,
+            "dmPolicy": "allowlist",
+            "selfChatMode": true,
+            "allowFrom": [
+                "+56979250156"
+            ],
+            "groupPolicy": "allowlist",
+            "debounceMs": 0,
+            "mediaMaxMb": 50
+        }
+    },
+    "gateway": {
+        "port": 18789,
+        "mode": "local",
+        "bind": "lan",
+        "controlUi": {
+            "allowedOrigins": [
+                "*"
+            ]
+        },
+        "auth": {
+            "mode": "token",
+            "token": "0e5a9d286b4cae0560f03362ec48aac3ec1653c3eae1ad8f"
+        },
+        "tailscale": {
+            "mode": "off",
+            "resetOnExit": false
+        },
+        "nodes": {
+            "denyCommands": [
+                "camera.snap",
+                "camera.clip",
+                "screen.record",
+                "contacts.add",
+                "calendar.add",
+                "reminders.add",
+                "sms.send"
+            ]
+        }
+    },
+    "plugins": {
+        "entries": {
+            "whatsapp": {
+                "enabled": true
+            }
+        }
+    }
+}

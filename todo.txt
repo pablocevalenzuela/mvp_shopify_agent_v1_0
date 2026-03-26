@@ -328,3 +328,7 @@ configuré la skill himalaya para el envío de mails desde OpenClaw.
 
 
 
+
+
+
+sudo tail -f /tmp/openclaw/openclaw-2026-03-25.log

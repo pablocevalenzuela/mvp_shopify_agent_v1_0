@@ -4,6 +4,7 @@ import json
 import base64
 import os
 import requests
+import re
 from django.conf import settings
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -12,7 +13,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from shopify_agent.agents.stock_agent.runner import run_stock_agent
 from shopify_agent.agents.order_agent.runner import run_order_agent
-from shopify_agent.models import LowStockAlert, Provider  # Import explícito
+from shopify_agent.models import LowStockAlert, Provider
 
 
 def verify_shopify_webhook(data, hmac_header):
@@ -32,10 +33,12 @@ def shopify_webhook_receiver(request):
     """
     Webhook de Inventario de Shopify: Dispara alertas de bajo stock.
     """
+    print(f"\n--- [WEBHOOK SHOPIFY] Nueva notificación de inventario ---")
     try:
         request_body = request.body
         hmac_header = request.headers.get('X-Shopify-Hmac-SHA256')
         if not hmac_header or not verify_shopify_webhook(request_body, hmac_header):
+            print("--- [WEBHOOK ERROR] HMAC no válido ---")
             return JsonResponse({'error': 'Unauthorized'}, status=401)
         payload = json.loads(request_body.decode('utf-8'))
 
@@ -44,8 +47,7 @@ def shopify_webhook_receiver(request):
         result = run_stock_agent(payload, thread_id=thread_id)
         return JsonResponse(result)
     except Exception as e:
-        print(
-            f"--- [WEBHOOK ERROR] Error en shopify_webhook_receiver: {e} ---")
+        print(f"--- [WEBHOOK ERROR GLOBAL] {e} ---")
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -57,90 +59,71 @@ def openclaw_response_receiver(request):
     RECEPTOR PRINCIPAL DE OPENCLAW (WHATSAPP).
     Gestiona comandos de Skills y respuestas de usuario para HITL.
     """
+    print(f"\n--- [OPENCLAW RECEIVER] Recibiendo respuesta de WhatsApp ---")
     try:
         payload = json.loads(request.body.decode('utf-8'))
-        print(
-            f"--- [ROUTER DEBUG] Payload recibido: {json.dumps(payload)} ---")
-
-        # OpenClaw v2026.3.13: texto en 'body' o 'text'
+        
+        # Identificar el mensaje
         user_msg = (
-            # Campo detectado en los logs del usuario
-            payload.get('body') or
-            payload.get('text') or
-            payload.get('message') or
+            payload.get('body') or 
+            payload.get('text') or 
+            payload.get('message') or 
             payload.get('data', {}).get('content', '')
         )
         user_msg = user_msg.strip() if user_msg else ""
-
-        # Identificador único del usuario (Thread ID)
+        
+        # Identificar al usuario
         user_id = (
-            payload.get('bsuid') or
-            payload.get('sender_id') or
-            payload.get('sender') or
-            payload.get('from')
+            payload.get('bsuid') or 
+            payload.get('sender_id') or 
+            payload.get('sender') or 
+            payload.get('from') or
+            os.getenv('WHATSAPP_RECIPIENT_ID', 'default_user')
         )
 
-        if not user_id:
-            user_id = (
-                payload.get('data', {}).get('sender_id') or
-                payload.get('context', {}).get('user_id') or
-                os.getenv('WHATSAPP_RECIPIENT_ID', 'default_user')
-            )
-
         print(f"--- [ROUTER DEBUG] Msg: '{user_msg}' | User: {user_id} ---")
-        # 1. Prioridad: Comandos de Skill (OpenClaw -> Backend)
-        skill_id = payload.get('skill_id') or payload.get(
-            'id') or payload.get('data', {}).get('skill_id')
 
-        # Caso A: Solicitud directa de inventario
-        if skill_id == 'request_product' or '@solicitar_productos' in user_msg.lower():
-            print(
-                f"--- [ROUTER] Skill request_product detectada para {user_id} ---")
-            result = run_stock_agent({"text": user_msg}, thread_id=user_id)
-            return JsonResponse({"status": "skill_triggered", "agent": "stock_agent"})
-        # Caso B: Confirmación de pedido (Determinista)
-        # Soporte para "Sí", "/hacer_pedido" y extracción de cantidad
+        # 1. Comandos directos o confirmación de pedido (Determinista)
         user_msg_lower = user_msg.lower()
-        is_confirmation = any(word in user_msg_lower for word in ['si', 'sí', 'confirmar', '/hacer_pedido'])
+        is_confirmation = any(word in user_msg_lower for word in ['si', 'sí', 'confirmar', '/hacer_pedido', '/confirm_order'])
 
         has_pending_stock_alert = LowStockAlert.objects.filter(
             thread_id=user_id,
             status='notified'
         ).exists()
 
-        if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and is_confirmation):
-            print(f"--- [ROUTER] Confirmación detectada para {user_id}. Procesando... ---")
-
-            # 1. Recuperar la alerta más reciente
+        if has_pending_stock_alert and is_confirmation:
+            print(f"--- [ROUTER] Confirmación detectada. Buscando alerta reciente... ---")
             alert = LowStockAlert.objects.filter(
                 thread_id=user_id, status='notified').order_by('-created_at').first()
 
             if alert:
-                # Intentar extraer la cantidad (primer número encontrado en el mensaje)
-                import re
-                numbers = re.findall(r'\d+', user_msg)
-                quantity = int(numbers[0]) if numbers else None
+                # Extraer cantidad (prioridad a números en el mensaje)
+                quantity_match = re.search(r'\d+', user_msg)
+                quantity = int(quantity_match.group()) if quantity_match else None
 
-                # Si tenemos cantidad, podemos proceder determinísticamente
                 if quantity:
+                    print(f"--- [ROUTER] Cantidad detectada: {quantity}. Ejecutando pedido directo... ---")
                     from shopify_agent.agents.order_agent.tools import place_provider_order
                     from shopify_agent.models import Provider
 
-                    # Buscar al proveedor registrado
+                    # Buscar proveedor
                     provider = Provider.objects.filter(name__icontains=alert.vendor).first() if alert.vendor else Provider.objects.first()
 
                     if provider and provider.email:
-                        print(f"--- [ROUTER] Ejecutando envío directo (Determinista) de {quantity} unidades a {provider.email} ---")
+                        print(f"--- [ROUTER] Proveedor hallado: {provider.email} ---")
                         try:
-                            # Invocamos la herramienta que ahora usa HIMALAYA
                             result_msg = place_provider_order.invoke({
                                 "sku": alert.sku,
                                 "product_name": alert.product_name,
                                 "quantity": quantity,
                                 "provider_email": provider.email
                             })
+                            
+                            # Marcamos la alerta como procesada
+                            alert.status = 'processed'
+                            alert.save()
 
-                            # RESPUESTA DIRECTA AL GATEWAY
                             return JsonResponse({
                                 "status": "success",
                                 "output": f"✅ {result_msg}",
@@ -148,34 +131,32 @@ def openclaw_response_receiver(request):
                                 "metadata": {"source": "deterministic_router_himalaya"}
                             }, status=200)
                         except Exception as tool_err:
-                            print(f"--- [ROUTER ERROR] Error en herramienta: {tool_err} ---")
-
-            # Fallback: Agente LLM (Si no hay cantidad o falta info, el LLM preguntará amablemente)
-            print(f"--- [ROUTER] Fallback: Despertando OrderAgent para {user_id} ---")
+                            print(f"--- [ROUTER ERROR] Error en place_provider_order: {tool_err} ---")
+            
+            # Si no hay cantidad, despertamos al Agente para que pregunte
+            print(f"--- [ROUTER] No se halló cantidad o alerta. Fallback al OrderAgent ---")
             result = run_order_agent(user_msg, thread_id=user_id)
-            ai_resp = result.get("agent_response", "Procesando pedido...")
             return JsonResponse({
                 "status": "order_flow_started_fallback",
-                "output": ai_resp,
+                "output": result.get("agent_response", "Procesando pedido..."),
                 "action": "reply_and_stop"
             }, status=200)
-        # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
-        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no', 'unidades']):
-            print(
-                f"--- [ROUTER] Enrutando a StockAgent para flujo de stock ({user_id}) ---")
-            result = run_stock_agent({"text": user_msg}, thread_id=user_id)
 
-            if user_msg.lower() == 'no':
-                LowStockAlert.objects.filter(
-                    thread_id=user_id, status='notified').update(status='ignored')
+        # 2. Respuestas HITL genéricas (No, otros comandos)
+        if any(word in user_msg_lower for word in ['no', 'ignorar', 'cancelar']):
+            print(f"--- [ROUTER] Usuario ignoró la alerta ---")
+            LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='ignored')
+            return JsonResponse({"status": "ignored", "action": "reply_and_stop", "output": "De acuerdo, he ignorado la alerta."})
 
-        else:
-            # Por defecto, otras consultas van al OrderAgent
-            print(
-                f"--- [ROUTER] Enrutando a OrderAgent por defecto para {user_id} ---")
-            result = run_order_agent(user_msg, thread_id=user_id)
-        return JsonResponse({"status": "success"})
+        # 3. Default: Delegar al OrderAgent
+        print(f"--- [ROUTER] Delegando a OrderAgent por defecto ---")
+        result = run_order_agent(user_msg, thread_id=user_id)
+        return JsonResponse({
+            "status": "success",
+            "output": result.get("agent_response", ""),
+            "action": "reply_and_stop"
+        })
+
     except Exception as e:
-        print(
-            f"--- [ROUTER GLOBAL ERROR] Error en openclaw_response_receiver: {e} ---")
+        print(f"--- [ROUTER GLOBAL ERROR] {e} ---")
         return JsonResponse({"error": str(e)}, status=500)
