@@ -44,7 +44,7 @@ def find_best_provider_for_sku(sku: str):
 @tool
 def place_provider_order(sku: str, product_name: str, quantity: int, provider_email: str):
     """
-    Registra el pedido y ordena a OpenClaw (vía Skill Himalaya) el envío del correo.
+    Registra el pedido y ordena a OpenClaw (vía Skill Bundled Himalaya) el envío del correo.
     """
     print(f"--- [HIMALAYA] Intentando enviar pedido a {provider_email} ---")
     gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
@@ -58,26 +58,23 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
         provider_email=provider_email
     )
     
-    # 2. Instrucción a la Skill Himalaya de OpenClaw
+    # 2. Instrucción a la Skill Bundled Himalaya de OpenClaw
     if gateway_url and gateway_token:
-        # Formateamos el cuerpo del correo de forma profesional
         email_body = (
-            f"Estimado proveedor,\n\n"
-            f"Solicitamos formalmente el pedido de reposición para el siguiente producto:\n\n"
-            f"- Producto: {product_name}\n"
-            f"- SKU: {sku}\n"
-            f"- Cantidad: {quantity} unidades\n\n"
-            f"Por favor, confírmenos la recepción de este pedido y el tiempo estimado de entrega.\n\n"
-            f"Saludos,\nAgente de Compras Automatizado"
+            f"Pedido de reposición:\n\n"
+            f"Producto: {product_name}\n"
+            f"SKU: {sku}\n"
+            f"Cantidad: {quantity} unidades\n\n"
+            f"Saludos, Sistema Automatizado"
         )
 
         payload = {
-            "tool": "email.send", # Nombre técnico estándar en OpenClaw v2026.3.13
+            "tool": "himalaya", # Invocación directa de skill bundled
             "action": "send",
             "args": {
-                "to": provider_email,
+                "recipient": provider_email,
                 "subject": f"Pedido de Reposición - {product_name} (SKU: {sku})",
-                "body": email_body,
+                "message": email_body, # Campo estándar para skills bundled
                 "gatewayToken": gateway_token
             }
         }
@@ -87,22 +84,21 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
             "X-OpenClaw-Version": "2026.3.13"
         }
         try:
-            response = requests.post(gateway_url, json=payload, headers=headers, timeout=12)
+            response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
             print(f"--- [DEBUG] Status: {response.status_code} | Resp: {response.text} ---")
             
             if response.status_code == 200:
-                # Marcamos la alerta como procesada
                 LowStockAlert.objects.filter(sku=sku, status='notified').update(status='processed')
-                return f"Pedido de {quantity} unidades enviado exitosamente al proveedor {provider_email} vía Himalaya."
+                return f"Pedido enviado exitosamente al proveedor vía Skill Himalaya."
             
-            # Fallback si el nombre técnico falla
-            if "Tool not available" in response.text:
-                payload["tool"] = "himalaya.send"
-                response = requests.post(gateway_url, json=payload, headers=headers, timeout=12)
+            # Intento de fallback con campo 'to' si 'recipient' falla
+            if "error" in response.text.lower():
+                payload["args"]["to"] = provider_email
+                response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
                 if response.status_code == 200:
-                    return f"Pedido enviado exitosamente (fallback: himalaya.send)."
+                    return "Pedido enviado exitosamente (usando fallback 'to')."
 
-            return f"OpenClaw recibió la orden pero reportó un error: {response.text}"
+            return f"Error en OpenClaw al ejecutar Skill Himalaya: {response.text}"
         except Exception as e:
-            return f"Error de conexión al intentar enviar con Himalaya: {str(e)}"
+            return f"Error de conexión: {str(e)}"
     return "Configuración de Gateway incompleta."
