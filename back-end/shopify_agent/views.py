@@ -132,6 +132,7 @@ def openclaw_response_receiver(request):
                     if provider and provider.email:
                         print(f"--- [ROUTER] Ejecutando envío directo (Determinista) de {quantity} unidades a {provider.email} ---")
                         try:
+                            # Invocamos la herramienta que ahora usa HIMALAYA
                             result_msg = place_provider_order.invoke({
                                 "sku": alert.sku,
                                 "product_name": alert.product_name,
@@ -139,10 +140,12 @@ def openclaw_response_receiver(request):
                                 "provider_email": provider.email
                             })
 
+                            # RESPUESTA DIRECTA AL GATEWAY
                             return JsonResponse({
                                 "status": "success",
                                 "output": f"✅ {result_msg}",
-                                "action": "reply_and_stop"
+                                "action": "reply_and_stop",
+                                "metadata": {"source": "deterministic_router_himalaya"}
                             }, status=200)
                         except Exception as tool_err:
                             print(f"--- [ROUTER ERROR] Error en herramienta: {tool_err} ---")

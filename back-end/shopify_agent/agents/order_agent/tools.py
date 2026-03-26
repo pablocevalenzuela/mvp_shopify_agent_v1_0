@@ -9,7 +9,6 @@ from shopify_agent.models import LowStockAlert, ProviderOrder, Provider
 def get_pending_stock_alert(thread_id: str):
     """
     Recupera el contexto de la alerta pendiente desde la base de datos local.
-    Este es un dato privado del dominio que OpenClaw no conoce.
     """
     try:
         alert = LowStockAlert.objects.filter(
@@ -31,11 +30,7 @@ def get_pending_stock_alert(thread_id: str):
 def find_best_provider_for_sku(sku: str):
     """
     Busca el proveedor adecuado para un SKU específico en la base de datos privada.
-    Usa esta herramienta antes de realizar un pedido.
     """
-    # En un sistema real, podrías tener una tabla de mapeo Producto-Proveedor.
-    # Aquí buscaremos un proveedor que coincida con el nombre o simplemente el principal.
-    # Lógica simplificada: aquí reside tu dominio privado
     provider = Provider.objects.first()
     if provider:
         return {
@@ -49,30 +44,40 @@ def find_best_provider_for_sku(sku: str):
 @tool
 def place_provider_order(sku: str, product_name: str, quantity: int, provider_email: str):
     """
-    Registra el pedido y ordena a OpenClaw (Gateway) el envío del correo.
-    Toda la lógica de quién es el proveedor ya fue resuelta por el agente en el backend.
+    Registra el pedido y ordena a OpenClaw (vía Skill Himalaya) el envío del correo.
     """
     gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
     gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
-    # 1. Registro de auditoría local (Información privada de negocio)
+    
+    # 1. Registro de auditoría local
     ProviderOrder.objects.create(
         sku=sku,
         product_name=product_name,
         quantity=quantity,
         provider_email=provider_email
     )
-    # 2. Instrucción atómica al Gateway (OpenClaw v2026.3.13)
+    
+    # 2. Instrucción a la Skill Himalaya de OpenClaw
     if gateway_url and gateway_token:
+        # Formateamos el cuerpo del correo de forma profesional
+        email_body = (
+            f"Estimado proveedor,\n\n"
+            f"Solicitamos formalmente el pedido de reposición para el siguiente producto:\n\n"
+            f"- Producto: {product_name}\n"
+            f"- SKU: {sku}\n"
+            f"- Cantidad: {quantity} unidades\n\n"
+            f"Por favor, confírmenos la recepción de este pedido y el tiempo estimado de entrega.\n\n"
+            f"Saludos,\nAgente de Compras Automatizado"
+        )
+
         payload = {
-            "tool": "send_provider_order_email",
+            "tool": "himalaya", # Usamos la skill 'himalaya'
+            "action": "send",
             "args": {
-                "recipient": provider_email,
-                "gatewayToken": gateway_token,
-                "data": {
-                    "sku": sku,
-                    "product": product_name,
-                    "quantity": quantity
-                }
+                "to": provider_email,
+                "subject": f"Pedido de Reposición - {product_name} (SKU: {sku})",
+                "body": email_body,
+                "gatewayToken": gateway_token
             }
         }
         headers = {
@@ -81,14 +86,12 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
             "X-OpenClaw-Version": "2026.3.13"
         }
         try:
-            response = requests.post(
-                gateway_url, json=payload, headers=headers, timeout=15)
+            response = requests.post(gateway_url, json=payload, headers=headers, timeout=10)
             if response.status_code == 200:
-                # Marcamos la alerta como procesada en el dominio local
-                LowStockAlert.objects.filter(
-                    sku=sku, status='notified').update(status='processed')
-                return f"Orden enviada a OpenClaw exitosamente para {provider_email}."
-            return f"Error al delegar envío a OpenClaw: {response.text}"
+                # Marcamos la alerta como procesada
+                LowStockAlert.objects.filter(sku=sku, status='notified').update(status='processed')
+                return f"Pedido de {quantity} unidades enviado exitosamente al proveedor {provider_email} vía Himalaya."
+            return f"OpenClaw recibió la orden pero reportó un error: {response.text}"
         except Exception as e:
-            return f"Error de conexión con el Gateway: {str(e)}"
+            return f"Error de conexión al intentar enviar con Himalaya: {str(e)}"
     return "Configuración de Gateway incompleta."
