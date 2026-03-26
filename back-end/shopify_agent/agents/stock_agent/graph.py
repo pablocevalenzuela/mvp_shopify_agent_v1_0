@@ -8,10 +8,10 @@ from langchain_core.messages import SystemMessage
 from shopify_agent.agents.stock_agent.state import AgentState
 from shopify_agent.agents.stock_agent.tools import (
     send_stock_alert, 
-    place_provider_order, 
     check_provider_info, 
     register_provider
 )
+from shopify_agent.agents.order_agent.tools import place_provider_order
 from shopify_agent.agents.stock_agent.prompts import SYSTEM_PROMPT
 
 # 1. Registrar todas las herramientas disponibles

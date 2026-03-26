@@ -175,23 +175,3 @@ def openclaw_response_receiver(request):
         print(
             f"--- [ROUTER GLOBAL ERROR] Error en openclaw_response_receiver: {e} ---")
         return JsonResponse({"error": str(e)}, status=500)
-        # 2. Lógica de Enrutamiento para respuestas HITL genéricas:
-        if has_pending_stock_alert or any(word in user_msg.lower() for word in ['proveedor', 'sku', 'no', 'unidades']):
-            print(
-                f"--- [ROUTER] Enrutando a StockAgent para flujo de stock ({user_id}) ---")
-            result = run_stock_agent({"text": user_msg}, thread_id=user_id)
-
-            if user_msg.lower() == 'no':
-                LowStockAlert.objects.filter(
-                    thread_id=user_id, status='notified').update(status='ignored')
-
-        else:
-            # Por defecto, otras consultas van al OrderAgent
-            print(
-                f"--- [ROUTER] Enrutando a OrderAgent por defecto para {user_id} ---")
-            result = run_order_agent(user_msg, thread_id=user_id)
-        return JsonResponse({"status": "success"})
-    except Exception as e:
-        print(
-            f"--- [ROUTER GLOBAL ERROR] Error en openclaw_response_receiver: {e} ---")
-        return JsonResponse({"error": str(e)}, status=500)

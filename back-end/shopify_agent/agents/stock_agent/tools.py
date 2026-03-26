@@ -91,3 +91,4 @@ def register_provider(name: str, email: str, contact_person: str):
         defaults={'name': name, 'contact_person': contact_person}
     )
     status = "registrado" if created else "actualizado"
+    return f"Proveedor {name} ({email}) ha sido {status} correctamente."
