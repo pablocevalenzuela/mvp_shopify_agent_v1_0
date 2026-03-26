@@ -1,11 +1,12 @@
-import re
 import os
 import django
 
-# Configurar Django para el script
+# 1. Configurar el entorno (DEBE SER LO PRIMERO)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.develop')
 django.setup()
 
+# 2. Ahora sí podemos importar modelos y lógica
+import re
 from shopify_agent.agents.stock_agent.runner import run_stock_agent
 from shopify_agent.agents.order_agent.tools import place_provider_order
 from shopify_agent.models import LowStockAlert, Provider, ProviderOrder
@@ -14,7 +15,7 @@ from shopify_agent.models import LowStockAlert, Provider, ProviderOrder
 TEST_SKU = "SKU-PRO-E2E"
 TEST_PRODUCT = "Queso Emmental E2E"
 TEST_VENDOR = "ModaGlobal"
-TEST_EMAIL = "tu-email-de-prueba@ejemplo.com" # <--- CAMBIA ESTO SI QUIERES RECIBIR EL CORREO
+TEST_EMAIL = "pablo@example.com" # Cambia esto para recibir el correo real
 USER_REPLY = "si y 150" 
 THREAD_ID = os.getenv('WHATSAPP_RECIPIENT_ID', '56979250156')
 
