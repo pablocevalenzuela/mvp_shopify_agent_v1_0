@@ -46,6 +46,7 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
     """
     Registra el pedido y ordena a OpenClaw (vía Skill Himalaya) el envío del correo.
     """
+    print(f"--- [HIMALAYA] Intentando enviar pedido a {provider_email} ---")
     gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
     gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
     
@@ -71,7 +72,7 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
         )
 
         payload = {
-            "tool": "himalaya", # Usamos la skill 'himalaya'
+            "tool": "email.send", # Nombre técnico estándar en OpenClaw v2026.3.13
             "action": "send",
             "args": {
                 "to": provider_email,
@@ -86,11 +87,21 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
             "X-OpenClaw-Version": "2026.3.13"
         }
         try:
-            response = requests.post(gateway_url, json=payload, headers=headers, timeout=10)
+            response = requests.post(gateway_url, json=payload, headers=headers, timeout=12)
+            print(f"--- [DEBUG] Status: {response.status_code} | Resp: {response.text} ---")
+            
             if response.status_code == 200:
                 # Marcamos la alerta como procesada
                 LowStockAlert.objects.filter(sku=sku, status='notified').update(status='processed')
                 return f"Pedido de {quantity} unidades enviado exitosamente al proveedor {provider_email} vía Himalaya."
+            
+            # Fallback si el nombre técnico falla
+            if "Tool not available" in response.text:
+                payload["tool"] = "himalaya.send"
+                response = requests.post(gateway_url, json=payload, headers=headers, timeout=12)
+                if response.status_code == 200:
+                    return f"Pedido enviado exitosamente (fallback: himalaya.send)."
+
             return f"OpenClaw recibió la orden pero reportó un error: {response.text}"
         except Exception as e:
             return f"Error de conexión al intentar enviar con Himalaya: {str(e)}"
