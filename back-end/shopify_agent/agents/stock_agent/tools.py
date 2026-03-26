@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from langchain_core.tools import tool
 from shopify_agent.models import LowStockAlert, ProviderOrder, Provider
 
+
 @tool
 def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: int, vendor: str = None, thread_id: str = None):
     """
@@ -13,7 +14,6 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
     gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
     recipient_id = os.getenv('WHATSAPP_RECIPIENT_ID')
-
     vendor_info = f" del proveedor *{vendor}*" if vendor else ""
     msg_text = (
         f"⚠️ *ALERTA DE STOCK BAJO*\n\n"
@@ -21,52 +21,40 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
         f"Para autorizar el pedido de reposición al proveedor, escribe:\n*/confirm_order*\n\n"
         f"Para ignorar esta alerta, responde 'NO'."
     )
-
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
-        
-        # Payload ATÓMICO para OpenClaw v2026.3.13 vía /tools/invoke
-        # En esta versión, el orquestador espera 'tool' y 'args' para ejecución determinista
+        # Payload compatible con v2026.3.13
         payload = {
             "tool": "message",
             "action": "send",
             "args": {
-                "target": clean_recipient, 
+                "target": clean_recipient,
                 "recipient_id": clean_recipient,
-                "message": msg_text, 
+                "message": msg_text,
                 "channel": "whatsapp"
             }
         }
-        
         headers = {
-            "Authorization": f"Bearer {gateway_token}", 
+            "Authorization": f"Bearer {gateway_token}",
             "Content-Type": "application/json",
             "X-OpenClaw-Version": "2026.3.13"
         }
-        
         try:
-            # USAMOS LA URL EXACTA DE LA VARIABLE DE ENTORNO
-            print(f"--- [DEBUG] Conectando a OpenClaw: {gateway_url} ---")
-            response = requests.post(gateway_url, json=payload, headers=headers, timeout=15)
-            
-            if response.status_code != 200:
-                print(f"--- [OPENCLAW ERROR] Status: {response.status_code} | Response: {response.text} ---")
-            else:
-                print(f"--- [OPENCLAW SUCCESS] Alerta enviada correctamente ---")
-                
+            requests.post(gateway_url, json=payload,
+                          headers=headers, timeout=15)
         except Exception as e:
-            print(f"Error de conexión enviando alerta a OpenClaw: {e}")
-
+            print(f"Error enviando alerta a OpenClaw: {e}")
     LowStockAlert.objects.create(
-        product_id=product_id, 
-        sku=sku, 
-        product_name=product_name, 
+        product_id=product_id,
+        sku=sku,
+        product_name=product_name,
         vendor=vendor,
         stock_level=stock_level,
         thread_id=thread_id
     )
-    
+
     return f"Alerta enviada para {product_name} (Proveedor: {vendor}). Esperando confirmación."
+
 
 @tool
 def check_provider_info(email: str = None, name: str = None):
@@ -81,7 +69,7 @@ def check_provider_info(email: str = None, name: str = None):
             provider = Provider.objects.get(name__icontains=name)
         else:
             return "Error: Debes proporcionar un email o nombre para buscar."
-        
+
         return {
             "found": True,
             "name": provider.name,
@@ -90,6 +78,7 @@ def check_provider_info(email: str = None, name: str = None):
         }
     except Provider.DoesNotExist:
         return {"found": False, "message": "Proveedor no encontrado en la base de datos."}
+
 
 @tool
 def register_provider(name: str, email: str, contact_person: str):
@@ -102,71 +91,3 @@ def register_provider(name: str, email: str, contact_person: str):
         defaults={'name': name, 'contact_person': contact_person}
     )
     status = "registrado" if created else "actualizado"
-    return f"Proveedor {name} ({email}) ha sido {status} con éxito en el sistema."
-
-@tool
-def place_provider_order(provider_email: str, items_list: str, provider_name: str = None, contact_person: str = None):
-    """
-    Envía un email formal al proveedor con el pedido de reposición usando OpenClaw.
-    'items_list' debe ser un string con el formato: 'SKU1: Cantidad1, SKU2: Cantidad2'.
-    """
-    gateway_url = os.getenv('OPENCLAW_GATEWAY_URL')
-    gateway_token = os.getenv('OPENCLAW_GATEWAY_TOKEN')
-
-    if not items_list:
-        return "Error: No se proporcionaron SKUs para el pedido."
-
-    # Procesar la lista de items para el cuerpo del correo y registro
-    items = items_list.split(',')
-    formatted_items_text = ""
-    for item in items:
-        try:
-            if ':' not in item: continue
-            sku_part, qty_part = item.split(':')
-            sku = sku_part.strip()
-            qty = int(qty_part.strip())
-            formatted_items_text += f"- SKU: {sku} | Cantidad: {qty}\n"
-            
-            # Registro en la DB para auditoría
-            ProviderOrder.objects.create(
-                sku=sku,
-                product_name="Pedido Agente Stock",
-                quantity=qty,
-                provider_email=provider_email
-            )
-        except Exception as e:
-            print(f"Error procesando item {item}: {e}")
-            continue
-
-    contact_ref = contact_person if contact_person else "Equipo de Ventas"
-    body = (
-        f"Estimado/a {contact_ref},\n\n"
-        f"Espero que este mensaje le encuentre bien. Por medio de la presente, "
-        f"solicitamos el siguiente pedido de reposición para nuestra tienda:\n\n"
-        f"{formatted_items_text}\n"
-        f"Por favor, confírmenos la recepción de este pedido y el tiempo estimado de entrega.\n\n"
-        f"Quedamos a la espera de su respuesta.\n"
-        f"Saludos cordiales."
-    )
-
-    if gateway_url and gateway_token:
-        email_payload = {
-            "tool": "email",
-            "action": "send",
-            "args": {
-                "to": provider_email,
-                "subject": f"Pedido de Reposición - {provider_name if provider_name else 'Tienda'}",
-                "body": body
-            }
-        }
-        headers = {"Authorization": f"Bearer {gateway_token}", "Content-Type": "application/json"}
-        try:
-            response = requests.post(gateway_url, json=email_payload, headers=headers, timeout=15)
-            if response.status_code == 200:
-                return f"Pedido enviado con éxito a {provider_email} vía OpenClaw."
-            else:
-                return f"Error al enviar email vía OpenClaw: {response.text}"
-        except Exception as e:
-            return f"Error de conexión con OpenClaw: {str(e)}"
-
-    return "Error: Configuración de OpenClaw incompleta."
