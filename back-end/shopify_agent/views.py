@@ -99,56 +99,57 @@ def openclaw_response_receiver(request):
             result = run_stock_agent({"text": user_msg}, thread_id=user_id)
             return JsonResponse({"status": "skill_triggered", "agent": "stock_agent"})
         # Caso B: Confirmación de pedido (Determinista)
-        # Soporte para "Sí" con y sin tilde
-        is_confirmation = user_msg.lower() in ['si', 'sí', 's', 'confirmar']
+        # Soporte para "Sí", "/hacer_pedido" y extracción de cantidad
+        user_msg_lower = user_msg.lower()
+        is_confirmation = any(word in user_msg_lower for word in ['si', 'sí', 'confirmar', '/hacer_pedido'])
 
         has_pending_stock_alert = LowStockAlert.objects.filter(
             thread_id=user_id,
             status='notified'
         ).exists()
+
         if skill_id == 'confirm_order_skill' or (has_pending_stock_alert and is_confirmation):
-            print(
-                f"--- [ROUTER] Confirmación detectada para {user_id}. Procesando... ---")
+            print(f"--- [ROUTER] Confirmación detectada para {user_id}. Procesando... ---")
 
             # 1. Recuperar la alerta más reciente
             alert = LowStockAlert.objects.filter(
                 thread_id=user_id, status='notified').order_by('-created_at').first()
 
             if alert:
-                from shopify_agent.agents.order_agent.tools import place_provider_order
-                from shopify_agent.models import Provider
+                # Intentar extraer la cantidad (primer número encontrado en el mensaje)
+                import re
+                numbers = re.findall(r'\d+', user_msg)
+                quantity = int(numbers[0]) if numbers else None
 
-                # 2. Buscar al proveedor registrado
-                provider = Provider.objects.filter(name__icontains=alert.vendor).first(
-                ) if alert.vendor else Provider.objects.first()
+                # Si tenemos cantidad, podemos proceder determinísticamente
+                if quantity:
+                    from shopify_agent.agents.order_agent.tools import place_provider_order
+                    from shopify_agent.models import Provider
 
-                if provider and provider.email:
-                    print(
-                        f"--- [ROUTER] Ejecutando envío directo (Determinista) a {provider.email} ---")
-                    try:
-                        result_msg = place_provider_order.invoke({
-                            "sku": alert.sku,
-                            "product_name": alert.product_name,
-                            "quantity": 10,
-                            "provider_email": provider.email
-                        })
+                    # Buscar al proveedor registrado
+                    provider = Provider.objects.filter(name__icontains=alert.vendor).first() if alert.vendor else Provider.objects.first()
 
-                        # RESPUESTA DIRECTA AL GATEWAY (Ahorra un viaje y cancela el LLM)
-                        response_data = {
-                            "status": "success",
-                            "output": f"✅ {result_msg}",
-                            "action": "reply_and_stop",
-                            "metadata": {"source": "deterministic_router"}
-                        }
-                        return JsonResponse(response_data, status=200)
-                    except Exception as tool_err:
-                        print(
-                            f"--- [ROUTER ERROR] Error en herramienta: {tool_err} ---")
-            # Fallback: Agente LLM (Si no hay alerta o falta info)
-            print(
-                f"--- [ROUTER] Fallback: Despertando OrderAgent para {user_id} ---")
+                    if provider and provider.email:
+                        print(f"--- [ROUTER] Ejecutando envío directo (Determinista) de {quantity} unidades a {provider.email} ---")
+                        try:
+                            result_msg = place_provider_order.invoke({
+                                "sku": alert.sku,
+                                "product_name": alert.product_name,
+                                "quantity": quantity,
+                                "provider_email": provider.email
+                            })
+
+                            return JsonResponse({
+                                "status": "success",
+                                "output": f"✅ {result_msg}",
+                                "action": "reply_and_stop"
+                            }, status=200)
+                        except Exception as tool_err:
+                            print(f"--- [ROUTER ERROR] Error en herramienta: {tool_err} ---")
+
+            # Fallback: Agente LLM (Si no hay cantidad o falta info, el LLM preguntará amablemente)
+            print(f"--- [ROUTER] Fallback: Despertando OrderAgent para {user_id} ---")
             result = run_order_agent(user_msg, thread_id=user_id)
-
             ai_resp = result.get("agent_response", "Procesando pedido...")
             return JsonResponse({
                 "status": "order_flow_started_fallback",

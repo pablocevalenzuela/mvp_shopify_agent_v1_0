@@ -17,9 +17,9 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     vendor_info = f" del proveedor *{vendor}*" if vendor else ""
     msg_text = (
         f"⚠️ *ALERTA DE STOCK BAJO*\n\n"
-        f"El producto *{product_name}* (SKU: {sku}){vendor_info} tiene solo *{stock_level}* unidades restantes.\n\n"
-        f"Para autorizar el pedido de reposición al proveedor, escribe:\n*/confirm_order*\n\n"
-        f"Para ignorar esta alerta, responde 'NO'."
+        f"El producto *{product_name}* (SKU: {sku}){vendor_info} tiene solo *{stock_level}* unidades restantes. "
+        f"Para hacer un nuevo pedido de reposición responde con un *si* o */hacer_pedido*, añade la cantidad a reponer "
+        f"o responde con un *no* para ignorar esta alerta."
     )
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
