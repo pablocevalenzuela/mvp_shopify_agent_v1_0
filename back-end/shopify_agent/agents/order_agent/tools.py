@@ -67,6 +67,7 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
             "tool": "send_provider_order_email",
             "args": {
                 "recipient": provider_email,
+                "gatewayToken": gateway_token,
                 "data": {
                     "sku": sku,
                     "product": product_name,

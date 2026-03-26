@@ -31,7 +31,8 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
                 "target": clean_recipient,
                 "recipient_id": clean_recipient,
                 "message": msg_text,
-                "channel": "whatsapp"
+                "channel": "whatsapp",
+                "gatewayToken": gateway_token
             }
         }
         headers = {
