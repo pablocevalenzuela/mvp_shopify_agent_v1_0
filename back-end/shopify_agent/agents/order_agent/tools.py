@@ -1,4 +1,17 @@
-   try:
+import os
+import requests
+import json
+from langchain_core.tools import tool
+from shopify_agent.models import LowStockAlert, ProviderOrder, Provider
+
+
+@tool
+def get_pending_stock_alert(thread_id: str):
+    """
+    Recupera el contexto de la alerta pendiente desde la base de datos local.
+    Este es un dato privado del dominio que OpenClaw no conoce.
+    """
+    try:
         alert = LowStockAlert.objects.filter(
             thread_id=thread_id, status='notified').order_by('-created_at').first()
         if alert:
@@ -22,7 +35,8 @@ def find_best_provider_for_sku(sku: str):
     """
     # En un sistema real, podrías tener una tabla de mapeo Producto-Proveedor.
     # Aquí buscaremos un proveedor que coincida con el nombre o simplemente el principal.
-    provider = Provider.objects.first()  # Lógica simplificada: aquí reside tu dominio privado
+    # Lógica simplificada: aquí reside tu dominio privado
+    provider = Provider.objects.first()
     if provider:
         return {
             "name": provider.name,
@@ -50,10 +64,8 @@ def place_provider_order(sku: str, product_name: str, quantity: int, provider_em
     # 2. Instrucción atómica al Gateway (OpenClaw v2026.3.13)
     if gateway_url and gateway_token:
         payload = {
-            "tool": "skill",
-            "action": "execute",
+            "tool": "send_provider_order_email",
             "args": {
-                "id": "send_provider_order_email",
                 "recipient": provider_email,
                 "data": {
                     "sku": sku,
