@@ -7,6 +7,18 @@ pablo@linuxvm:~/mvp_shopify_agent_v1_0/back-end$ DJANGO_SETTINGS_MODULE=core.set
 echo "si y 100" | /home/team_ecoinput_com_gmail_com/.openclaw/workspace/hooks/whatsapp/whatsapp_filter.py
 
 
+//batch to send test mail in linux shell:
+cat << 'EOF' | himalaya template send
+From: team_ecoinput.com@gmail.com
+To: pabloce.valenzuela@gmail.com
+Subject: Test Message
+
+Hello from Himalaya!
+EOF
+
+
+
+
 
 Taks in back-end:
 - set up proyecto Django: ok
@@ -342,3 +354,32 @@ configuré la skill himalaya para el envío de mails desde OpenClaw.
 
 
 sudo tail -f /tmp/openclaw/openclaw-2026-03-25.log
+
+
+
+
+
+
+
+////scripts para openclaw:
+himalaya message send \
+-- --smtp-host smtp.gmail.com \
+--smtp-port 587 \
+--smtp-user "team_ecoinput.com@gmail.com" \
+--smtp-pass "yevi nnyw uzyo cugc" \
+-- --to "pabloce.valenzuela@gmail.com" \
+--subject "Pedido confirmado" \
+--body "si y 100" \
+--account "personal" \
+"Este es el cuerpo del mensaje"
+
+
+
+cat << 'EOF' | himalaya template send
+From: team_ecoinput.com@gmail.com
+To: pabloce.valenzuela@gmail.com
+Subject: Test Message
+
+Hello from Himalaya!
+EOF
+

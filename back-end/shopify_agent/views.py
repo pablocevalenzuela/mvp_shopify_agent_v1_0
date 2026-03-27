@@ -113,7 +113,7 @@ def openclaw_response_receiver(request):
                     if provider and provider.email:
                         print(f"--- [ROUTER] Proveedor hallado: {provider.email} ---")
                         try:
-                            result_msg = place_provider_order.invoke({
+                            result = place_provider_order.invoke({
                                 "sku": alert.sku,
                                 "product_name": alert.product_name,
                                 "quantity": quantity,
@@ -124,11 +124,20 @@ def openclaw_response_receiver(request):
                             alert.status = 'processed'
                             alert.save()
 
+                            # Si el resultado es el diccionario de instrucción para Himalaya
+                            if isinstance(result, dict) and result.get("action") == "send_himalaya_email":
+                                return JsonResponse({
+                                    "status": "success",
+                                    "output": result.get("success_msg", "Pedido procesado correctamente."),
+                                    "action": "reply_and_stop",
+                                    "himalaya_data": result,  # <--- PAYLOAD PARA OPENCLAW
+                                    "metadata": {"source": "deterministic_router_himalaya"}
+                                }, status=200)
+
                             return JsonResponse({
                                 "status": "success",
-                                "output": f"✅ {result_msg}",
-                                "action": "reply_and_stop",
-                                "metadata": {"source": "deterministic_router_himalaya"}
+                                "output": f"✅ {result}",
+                                "action": "reply_and_stop"
                             }, status=200)
                         except Exception as tool_err:
                             print(f"--- [ROUTER ERROR] Error en place_provider_order: {tool_err} ---")
@@ -136,11 +145,16 @@ def openclaw_response_receiver(request):
             # Si no hay cantidad, despertamos al Agente para que pregunte
             print(f"--- [ROUTER] No se halló cantidad o alerta. Fallback al OrderAgent ---")
             result = run_order_agent(user_msg, thread_id=user_id)
-            return JsonResponse({
+            
+            response_data = {
                 "status": "order_flow_started_fallback",
                 "output": result.get("agent_response", "Procesando pedido..."),
                 "action": "reply_and_stop"
-            }, status=200)
+            }
+            if result.get("himalaya_data"):
+                response_data["himalaya_data"] = result.get("himalaya_data")
+                
+            return JsonResponse(response_data, status=200)
 
         # 2. Respuestas HITL genéricas (No, otros comandos)
         if any(word in user_msg_lower for word in ['no', 'ignorar', 'cancelar']):
@@ -151,11 +165,16 @@ def openclaw_response_receiver(request):
         # 3. Default: Delegar al OrderAgent
         print(f"--- [ROUTER] Delegando a OrderAgent por defecto ---")
         result = run_order_agent(user_msg, thread_id=user_id)
-        return JsonResponse({
+        
+        response_data = {
             "status": "success",
             "output": result.get("agent_response", ""),
             "action": "reply_and_stop"
-        })
+        }
+        if result.get("himalaya_data"):
+            response_data["himalaya_data"] = result.get("himalaya_data")
+
+        return JsonResponse(response_data)
 
     except Exception as e:
         print(f"--- [ROUTER GLOBAL ERROR] {e} ---")
