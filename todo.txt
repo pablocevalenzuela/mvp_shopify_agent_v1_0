@@ -1,3 +1,13 @@
+scripts useful to testing in back-end:
+
+//to test Agents flows:
+pablo@linuxvm:~/mvp_shopify_agent_v1_0/back-end$ DJANGO_SETTINGS_MODULE=core.settings.develop poetry run python test_e2e_full.py
+
+//script in VM OpenClaw to test hook:
+echo "si y 100" | /home/team_ecoinput_com_gmail_com/.openclaw/workspace/hooks/whatsapp/whatsapp_filter.py
+
+
+
 Taks in back-end:
 - set up proyecto Django: ok
 - app shopify_agent: en proceso
