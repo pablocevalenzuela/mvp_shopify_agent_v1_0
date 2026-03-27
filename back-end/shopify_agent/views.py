@@ -80,6 +80,9 @@ def openclaw_response_receiver(request):
             payload.get('from') or
             os.getenv('WHATSAPP_RECIPIENT_ID', 'default_user')
         )
+        
+        # Normalizar user_id: Quitar el '+' si viene de WhatsApp para que coincida con la BD
+        user_id = str(user_id).replace('+', '')
 
         print(f"--- [ROUTER DEBUG] Msg: '{user_msg}' | User: {user_id} ---")
 
