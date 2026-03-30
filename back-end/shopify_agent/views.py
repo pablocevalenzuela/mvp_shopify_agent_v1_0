@@ -88,7 +88,8 @@ def openclaw_response_receiver(request):
 
         # 2. Lógica Determinista (Confirmación de Pedido)
         user_msg_lower = user_msg.lower()
-        is_confirmation = any(word in user_msg_lower for word in ['si', 'sí', 'confirmar', '/hacer_pedido', '/confirm_order'])
+        # Se activa con /hacer_pedido, si, sí, o confirmaciones explícitas
+        is_confirmation = any(word in user_msg_lower for word in ['si', 'sí', 'confirmar', '/hacer_pedido', 'confirmo'])
 
         # Buscamos la alerta 'notified' más reciente para este hilo
         pending_alert = LowStockAlert.objects.filter(
@@ -151,7 +152,17 @@ def openclaw_response_receiver(request):
                 "himalaya_data": result.get("himalaya_data")
             }, status=200)
 
-        # 3. Fallback: Delegar todo lo demás al Agente LangGraph
+        # 3. Respuesta HITL genérica (Ignorar/Rechazar)
+        if any(word in user_msg_lower for word in ['no', 'ignorar', 'cancelar']):
+            print(f"--- [ROUTER] Usuario rechazó la alerta ---")
+            LowStockAlert.objects.filter(thread_id=user_id, status='notified').update(status='ignored')
+            return JsonResponse({
+                "status": "ignored", 
+                "action": "reply_and_stop", 
+                "output": "De acuerdo, he ignorado la alerta."
+            })
+
+        # 4. Fallback: Delegar todo lo demás al Agente LangGraph
         print(f"--- [ROUTER] Delegando a Agente LangGraph por defecto ---")
         result = run_order_agent(user_msg, thread_id=user_id)
         return JsonResponse({
@@ -160,10 +171,6 @@ def openclaw_response_receiver(request):
             "action": "reply_and_stop",
             "himalaya_data": result.get("himalaya_data")
         })
-
-    except Exception as e:
-        print(f"--- [ROUTER GLOBAL ERROR] {e} ---")
-        return JsonResponse({"error": str(e)}, status=500)
 
     except Exception as e:
         print(f"--- [ROUTER GLOBAL ERROR] {e} ---")
