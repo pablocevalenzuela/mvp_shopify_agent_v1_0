@@ -23,8 +23,7 @@ def send_whatsapp_response(text: str, recipient_id: str):
                 "target": clean_recipient, 
                 "recipient_id": clean_recipient,
                 "message": text, 
-                "channel": "whatsapp",
-                "gatewayToken": gateway_token
+                "channel": "whatsapp"
             }
         }
         headers = {
@@ -65,9 +64,9 @@ def run_stock_agent(data: dict, thread_id: str = "default"):
     
     final_state = graph.invoke(inputs, config=config)
     
-    # 4. Enviar respuesta final al usuario (Evitando duplicados/Errores 500)
-    # Si el flujo incluyó la herramienta 'send_stock_alert', NO enviamos el mensaje de la IA
-    # para evitar que OpenClaw rechace la segunda petición simultánea.
+    # 4. Enviar respuesta final al usuario (Evitando duplicados)
+    # Si el flujo incluyó la herramienta 'send_stock_alert', no enviamos la respuesta de texto de la IA
+    # porque la herramienta ya envió el mensaje detallado.
     messages = final_state["messages"]
     used_notification_tool = any(
         isinstance(m, ToolMessage) and "Alerta enviada" in m.content 
@@ -77,13 +76,11 @@ def run_stock_agent(data: dict, thread_id: str = "default"):
     ai_message = messages[-1]
     ai_response_text = ai_message.content
 
+    # Solo enviamos respuesta si hay texto Y NO se usó la herramienta de notificación automática
     if ai_response_text and not used_notification_tool:
-        print(f"--- [DEBUG] Enviando respuesta de la IA a {thread_id} ---")
         send_whatsapp_response(ai_response_text, thread_id)
     else:
-        # Si se usó la herramienta, ya se envió un mensaje. No enviamos el segundo.
-        reason = "herramienta utilizada" if used_notification_tool else "sin texto"
-        print(f"--- [DEBUG] Omitiendo respuesta manual ({reason}) para {thread_id} ---")
+        print(f"--- [DEBUG] Respuesta redundante omitida para {thread_id} ---")
 
     return {
         "status": "success",
