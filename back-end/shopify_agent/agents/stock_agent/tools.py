@@ -23,16 +23,14 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
     )
     if gateway_url and gateway_token and recipient_id:
         clean_recipient = recipient_id.split('#')[0].strip()
-        # Payload compatible con v2026.3.13
+        # Payload optimizado para v2026.3.13 (Formato Plano)
         payload = {
             "tool": "message",
             "action": "send",
             "args": {
-                "target": clean_recipient,
                 "recipient_id": clean_recipient,
                 "message": msg_text,
-                "channel": "whatsapp",
-                "gatewayToken": gateway_token
+                "channel": "whatsapp"
             }
         }
         headers = {
@@ -42,10 +40,18 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
         }
         try:
             response = requests.post(gateway_url, json=payload,
-                                     headers=headers, timeout=15)
-            print(f"--- [OPENCLAW TOOL DEBUG] Status: {response.status_code} | Response: {response.text} ---")
+                                     headers=headers, timeout=20)
+            
+            # Verificación proactiva del status
+            if response.status_code == 200:
+                print(f"--- [OPENCLAW TOOL SUCCESS] Alerta enviada correctamente a {clean_recipient} ---")
+            else:
+                print(f"--- [OPENCLAW TOOL ERROR] Status: {response.status_code} | Response: {response.text} ---")
+                return f"Error al enviar alerta vía OpenClaw: {response.text}"
+                
         except Exception as e:
-            print(f"Error enviando alerta a OpenClaw: {e}")
+            print(f"Error crítico en conexión con OpenClaw: {e}")
+            return f"Excepción de red al enviar alerta: {str(e)}"
     LowStockAlert.objects.create(
         product_id=product_id,
         sku=sku,
