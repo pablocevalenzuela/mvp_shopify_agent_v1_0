@@ -58,7 +58,10 @@ def openclaw_response_receiver(request):
     """
     RECEPTOR PRINCIPAL DE OPENCLAW (WHATSAPP).
     """
-    print(f"\n--- [OPENCLAW RECEIVER] Recibiendo respuesta de WhatsApp ---")
+    print("\n" + "="*50)
+    print(f"!!! [CRITICAL DEBUG] PETICIÓN ENTRANTE DESDE OPENCLAW !!!")
+    print(f"Timestamp: {os.getloadavg()}") # Solo para ver algo dinámico
+    print("="*50)
     try:
         payload = json.loads(request.body.decode('utf-8'))
         

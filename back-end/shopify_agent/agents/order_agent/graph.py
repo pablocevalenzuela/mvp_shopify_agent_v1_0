@@ -28,10 +28,11 @@ def call_model(state: AgentState, config):
     
     response = llm.invoke(messages, config)
     
-    # Inyectar thread_id automáticamente en get_pending_stock_alert si se invoca
+    # Inyectar thread_id automáticamente en las herramientas que lo soporten
     if response.tool_calls:
         for tool_call in response.tool_calls:
-            if tool_call["name"] == "get_pending_stock_alert":
+            # Lista de herramientas que requieren thread_id para contexto o seguridad
+            if tool_call["name"] in ["get_pending_stock_alert", "place_provider_order"]:
                 tool_call["args"]["thread_id"] = thread_id
 
     return {"messages": [response]}
