@@ -92,20 +92,20 @@ def openclaw_response_receiver(request):
         is_confirmation = any(word in user_msg_lower for word in ['si', 'sí', 'confirmar', 'confirmo'])
 
         # 2. BÚSQUEDA DE ALERTA (Más tolerante)
-        # Buscamos alertas 'notified' para este usuario (o que contengan el ID si hay variaciones de prefijo)
+        # Buscamos alertas 'notified' para este usuario
         pending_alert = LowStockAlert.objects.filter(
-            thread_id__contains=user_id[-9:], # Buscamos por los últimos 9 dígitos para evitar líos de prefijo (+56)
+            thread_id__contains=user_id[-9:], 
             status='notified'
         ).order_by('-created_at').first()
 
         if is_order_command or (pending_alert and is_confirmation):
-            print(f"--- [ROUTER] Intención de pedido detectada ---")
+            print(f"--- [ROUTER] Intención de pedido detectada: {user_msg} ---")
             
             # Extraer cantidad
             quantity_match = re.search(r'\d+', user_msg)
             quantity = int(quantity_match.group()) if quantity_match else None
 
-            # Si tenemos alerta y cantidad -> ¡DISPARAMOS!
+            # Si tenemos alerta y cantidad -> ¡DISPARAMOS DETERMINÍSTICO!
             if pending_alert and quantity:
                 print(f"--- [ROUTER] Ejecutando Pedido Determinista para {pending_alert.product_name} ---")
                 from shopify_agent.agents.order_agent.tools import place_provider_order
@@ -114,16 +114,15 @@ def openclaw_response_receiver(request):
                 provider = Provider.objects.filter(name__icontains=pending_alert.vendor).first() or Provider.objects.first()
 
                 if provider and provider.email:
+                    # PASAMOS EL user_id como thread_id para que la herramienta cierre la alerta en Supabase
                     result = place_provider_order.invoke({
                         "sku": pending_alert.sku,
                         "product_name": pending_alert.product_name,
                         "quantity": quantity,
-                        "provider_email": provider.email
+                        "provider_email": provider.email,
+                        "thread_id": user_id 
                     })
                     
-                    pending_alert.status = 'processed'
-                    pending_alert.save()
-
                     if isinstance(result, dict) and result.get("action") == "send_himalaya_email":
                         return JsonResponse({
                             "status": "success",
@@ -133,8 +132,7 @@ def openclaw_response_receiver(request):
                         }, status=200)
 
             # 3. Si el router determinista no tiene info suficiente, DELEGAMOS AL AGENTE DE ÓRDENES
-            # Pero forzamos que sea el Order Agent, no el de Stock.
-            print(f"--- [ROUTER] Delegando a Agente de Órdenes (LangGraph) ---")
+            print(f"--- [ROUTER] Delegando a Agente de Órdenes (LangGraph) para: {user_msg} ---")
             result = run_order_agent(user_msg, thread_id=user_id)
             
             response_data = {
