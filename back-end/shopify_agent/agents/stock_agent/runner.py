@@ -59,6 +59,11 @@ def run_stock_agent(data: dict, thread_id: str = "default"):
 
     # 3. Invocación del Grafo
     user_msg = get_user_message(data)
+    
+    # OPCIONAL: Descomentar para forzar que el agente siempre procese alertas repetidas
+    # import datetime
+    # user_msg = f"{user_msg}\n(Event ID: {datetime.datetime.now().isoformat()})"
+    
     config = {"configurable": {"thread_id": thread_id}}
     inputs = {"messages": [("user", user_msg)]}
     
