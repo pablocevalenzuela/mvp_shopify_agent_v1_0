@@ -64,23 +64,16 @@ def run_stock_agent(data: dict, thread_id: str = "default"):
     
     final_state = graph.invoke(inputs, config=config)
     
-    # 4. Enviar respuesta final al usuario (Evitando duplicados)
-    # Si el flujo incluyó la herramienta 'send_stock_alert', no enviamos la respuesta de texto de la IA
-    # porque la herramienta ya envió el mensaje detallado.
+    # 4. Enviar respuesta final al usuario
     messages = final_state["messages"]
-    used_notification_tool = any(
-        isinstance(m, ToolMessage) and "Alerta enviada" in m.content 
-        for m in messages
-    )
-
     ai_message = messages[-1]
     ai_response_text = ai_message.content
 
-    # Solo enviamos respuesta si hay texto Y NO se usó la herramienta de notificación automática
-    if ai_response_text and not used_notification_tool:
+    if ai_response_text:
+        print(f"--- [DEBUG] Enviando respuesta de la IA a {thread_id} ---")
         send_whatsapp_response(ai_response_text, thread_id)
     else:
-        print(f"--- [DEBUG] Respuesta redundante omitida para {thread_id} ---")
+        print(f"--- [DEBUG] Sin respuesta de texto para enviar a {thread_id} ---")
 
     return {
         "status": "success",
