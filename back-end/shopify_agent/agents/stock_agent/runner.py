@@ -23,7 +23,8 @@ def send_whatsapp_response(text: str, recipient_id: str):
                 "target": clean_recipient, 
                 "recipient_id": clean_recipient,
                 "message": text, 
-                "channel": "whatsapp"
+                "channel": "whatsapp",
+                "gatewayToken": gateway_token
             }
         }
         headers = {
