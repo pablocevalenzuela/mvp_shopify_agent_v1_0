@@ -41,8 +41,9 @@ def send_stock_alert(product_id: str, sku: str, product_name: str, stock_level: 
             "X-OpenClaw-Version": "2026.3.13"
         }
         try:
-            requests.post(gateway_url, json=payload,
-                          headers=headers, timeout=15)
+            response = requests.post(gateway_url, json=payload,
+                                     headers=headers, timeout=15)
+            print(f"--- [OPENCLAW TOOL DEBUG] Status: {response.status_code} | Response: {response.text} ---")
         except Exception as e:
             print(f"Error enviando alerta a OpenClaw: {e}")
     LowStockAlert.objects.create(
